@@ -5,14 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DiplomProject.Backend.Api.Models
 {
-    public class UserModel : IUserModel
+    public class UserModel : Model, IUserModel
     {
-        private readonly DataContext _dbContext;
-
-        public UserModel(DataContext dbContext)
-        {
-            _dbContext = dbContext;
-        }
+        public UserModel(DataContext dbContext) : base(dbContext) { }
 
         public async Task<ModelResponse<User>> AddNewUser(UserParametersRequest request)
         {

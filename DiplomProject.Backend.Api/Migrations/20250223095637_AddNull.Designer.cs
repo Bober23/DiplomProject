@@ -11,8 +11,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DiplomProject.Backend.Api.Migrations
 {
     [DbContext(typeof(DataContext))]
-    [Migration("20250219103605_Init")]
-    partial class Init
+    [Migration("20250223095637_AddNull")]
+    partial class AddNull
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -33,15 +33,12 @@ namespace DiplomProject.Backend.Api.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("id"));
 
                     b.Property<string>("Category")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("ContentImagesLink")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("ContentLink")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Extension")

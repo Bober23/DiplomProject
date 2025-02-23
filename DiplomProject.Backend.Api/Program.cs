@@ -14,6 +14,7 @@ string? databaseConnectionString = "Host=89.23.117.56;Port=5432;Database=Diplom;
 builder.Services.AddDbContext<DataContext>(options => options.UseNpgsql(databaseConnectionString));
 
 builder.Services.AddScoped<IUserModel, UserModel>();
+builder.Services.AddScoped<IDocumentModel, DocumentModel>();
 
 var app = builder.Build();
 

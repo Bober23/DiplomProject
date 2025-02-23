@@ -26,5 +26,11 @@ namespace DiplomProject
                 .HasMany(x => x.Documents)
                 .WithOne(x => x.User);
         }
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            optionsBuilder
+                .UseLazyLoadingProxies();
+        }
     }
 }
