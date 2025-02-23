@@ -6,8 +6,8 @@ namespace DiplomProject
 {
     public class DataContext : DbContext
     {
-        public DbSet<User> Users => Set<User>();
-        public DbSet<Document> Documents => Set<Document>();
+        public DbSet<User> Users { get; set; }
+        public DbSet<Document> Documents {  get; set; }
         public DataContext()
         {
             Database.EnsureCreated();

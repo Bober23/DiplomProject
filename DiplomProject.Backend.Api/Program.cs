@@ -1,4 +1,5 @@
 using DiplomProject;
+using DiplomProject.Backend.Api.Models;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,8 +10,10 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-string? databaseConnectionString = "Host=89.23.117.56;Port=5432;Database=Diplom;Username=Boberman;Password=bober23";
+string? databaseConnectionString = "Host=89.23.117.56;Port=5432;Database=Diplom;Username=Boberman;Password=bober23"; //TODO: спрятать констринг
 builder.Services.AddDbContext<DataContext>(options => options.UseNpgsql(databaseConnectionString));
+
+builder.Services.AddScoped<IUserModel, UserModel>();
 
 var app = builder.Build();
 
@@ -20,7 +23,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
 app.UseHttpsRedirection();
 
 app.UseAuthorization();

@@ -24,8 +24,4 @@
     <ProjectReference Include="..\DiplomProject.DTOLibrary\DiplomProject.DTOLibrary.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Controllers\" />
-  </ItemGroup>
-
 </Project>
