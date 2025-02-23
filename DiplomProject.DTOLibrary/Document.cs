@@ -21,9 +21,9 @@ namespace DiplomProject.DTOLibrary
 
         public string? ContentLink { get; set; }
 
-        public string? ContentImagesLink { get; set; }
-
         [JsonIgnore]
         public virtual User User { get; set; }
+
+        public virtual List<DocFile> ImageFiles { get; set; }
     }
 }
