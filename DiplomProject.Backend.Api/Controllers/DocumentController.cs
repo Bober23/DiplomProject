@@ -3,8 +3,10 @@ using DiplomProject.Backend.Api.Requests;
 using DiplomProject.DTOLibrary;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace DiplomProject.Backend.Api.Controllers
 {
@@ -79,7 +81,7 @@ namespace DiplomProject.Backend.Api.Controllers
         public async Task<IActionResult> AddImageToDocument(int id, IFormFile file)
         {
             var parentDocumentResponse = await _model.GetDocumentById(id);
-            if (parentDocumentResponse.HttpStatus != 200 || parentDocumentResponse.Value == null) 
+            if (parentDocumentResponse.HttpStatus != 200 || parentDocumentResponse.Value == null)
             {
                 return BadRequest($"Error {parentDocumentResponse.HttpStatus} occurs while search parent document: {parentDocumentResponse.Message}");
             }
@@ -113,6 +115,40 @@ namespace DiplomProject.Backend.Api.Controllers
             };
             var responseFromModel = await _model.AddDocFileToDocument(docFile);
             return Ok(responseFromModel.Value);
+        }
+
+        [HttpGet("images/{id:int}")]
+        public async Task<IActionResult> GetDocumentImages(int id, [FromQuery] bool binarized)
+        {
+            var parentDocumentResponse = await _model.GetDocumentById(id);
+            if (parentDocumentResponse.HttpStatus != 200 || parentDocumentResponse.Value == null)
+            {
+                return BadRequest($"Error {parentDocumentResponse.HttpStatus} occurs while search parent document: {parentDocumentResponse.Message}");
+            }
+            var parentDocument = parentDocumentResponse.Value;
+            var archiveStream = new MemoryStream();
+            using (var archive = new ZipArchive(archiveStream, ZipArchiveMode.Create, true))
+            {
+                foreach (var image in parentDocument.ImageFiles)
+                {
+                    HttpResponseMessage? response = new HttpResponseMessage();
+                    response = await _http.GetAsync($"http://localhost:5127/Image?linkToFile={image.LinkToFile}&binarized={binarized}");
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        return BadRequest(response.Headers.ToString());
+                    }
+                    var entry = archive.CreateEntry(Path.GetFileName(image.Name), CompressionLevel.Fastest);
+
+                    using (var entryStream = entry.Open())
+                    using (var responseStream = await response.Content.ReadAsStreamAsync())
+                    {
+                        await responseStream.CopyToAsync(entryStream);
+                    }
+                }
+            }
+
+            archiveStream.Position = 0; // Сбрасываем позицию потока
+            return File(archiveStream.ToArray(), "application/zip", "images.zip");
         }
     }
 }

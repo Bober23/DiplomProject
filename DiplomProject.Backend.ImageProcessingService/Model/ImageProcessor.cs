@@ -13,6 +13,7 @@ using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace DiplomProject.Backend.ImageProcessingService.Model
 {
@@ -21,6 +22,8 @@ namespace DiplomProject.Backend.ImageProcessingService.Model
         private readonly IAmazonS3 _s3Client;
         private const string BucketName = "shishka";
         private const int _compressionQuality = 70;
+        private const int _blockSize = 15;
+        private const int _binConstant = 5;
 
         public ImageProcessor(IAmazonS3 s3Client)
         {
@@ -30,9 +33,16 @@ namespace DiplomProject.Backend.ImageProcessingService.Model
             AWSConfigs.LoggingConfig.LogMetrics = true;
         }
 
-        public Task<MemoryStream> BinarizeFile(MemoryStream fileStream)
+        public async Task<MemoryStream> BinarizeFile(MemoryStream fileStream)
         {
-            throw new NotImplementedException();
+            using var image = await Image.LoadAsync<Rgba32>(fileStream);
+            var bytes = ConvertImageToGrayscaleArray(image);
+            var binarizedBytes = AdaptiveBinarization(bytes, image.Width, image.Height, _blockSize, _binConstant);
+            using var binImage = Image.LoadPixelData<L8>(binarizedBytes, image.Width, image.Height);
+            var outputStream = new MemoryStream();
+            binImage.SaveAsPng(outputStream);
+            outputStream.Position = 0;
+            return outputStream;
         }
 
         public async Task<MemoryStream> CompressFile(MemoryStream fileStream)
@@ -53,7 +63,7 @@ namespace DiplomProject.Backend.ImageProcessingService.Model
 
             // Асинхронное сохранение в MemoryStream
             var outputStream = new MemoryStream();
-            await image.SaveAsync(outputStream, new JpegEncoder { Quality = 90 });
+            await image.SaveAsync(outputStream, encoder);
 
             outputStream.Position = 0;
             return outputStream;
@@ -87,7 +97,6 @@ namespace DiplomProject.Backend.ImageProcessingService.Model
                 Key = fileUri,
                 InputStream = fileStream,
                 ContentType = contentType,
-                Headers = { ["x-amz-content-sha256"] = "UNSIGNED-PAYLOAD" }
             };
 
             // Для дебага можно добавить логирование
@@ -96,5 +105,74 @@ namespace DiplomProject.Backend.ImageProcessingService.Model
             await _s3Client.PutObjectAsync(putRequest);
             return fileUri;
         }
+
+        private byte[] AdaptiveBinarization(byte[] image, int width, int height, int blockSize, int constant)
+        {
+            byte[] binaryImage = new byte[image.Length];
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    int sum = 0;
+                    int count = 0;
+
+                    // Вычисление среднего значения в блоке
+                    for (int dy = -blockSize / 2; dy <= blockSize / 2; dy++)
+                    {
+                        for (int dx = -blockSize / 2; dx <= blockSize / 2; dx++)
+                        {
+                            int nx = x + dx;
+                            int ny = y + dy;
+
+                            if (nx >= 0 && nx < width && ny >= 0 && ny < height)
+                            {
+                                int index = ny * width + nx;
+                                sum += image[index];
+                                count++;
+                            }
+                        }
+                    }
+
+                    int threshold = (sum / count) - constant;
+                    int currentIndex = y * width + x;
+                    binaryImage[currentIndex] = image[currentIndex] < threshold ? (byte)0 : (byte)255;
+                }
+            }
+
+            return binaryImage;
+        }
+
+        private byte[] ConvertImageToGrayscaleArray(Image<Rgba32> image)
+        {
+            // Загружаем изображение из MemoryStream
+            
+
+            // Преобразуем в градации серого
+            image.Mutate(x => x.Grayscale());
+
+            // Создаем массив для результата
+            byte[] grayscaleData = new byte[image.Width * image.Height];
+
+            // Получаем доступ к пикселям
+            image.ProcessPixelRows(accessor =>
+            {
+                for (int y = 0; y < accessor.Height; y++)
+                {
+                    // Получаем доступ к строке пикселей
+                    Span<Rgba32> pixelRow = accessor.GetRowSpan(y);
+
+                    // Обрабатываем каждый пиксель в строке
+                    for (int x = 0; x < pixelRow.Length; x++)
+                    {
+                        // В градациях серого все каналы (R, G, B) имеют одинаковое значение
+                        grayscaleData[y * image.Width + x] = pixelRow[x].R;
+                    }
+                }
+            });
+
+            return grayscaleData;
+        }
+
     }
 }

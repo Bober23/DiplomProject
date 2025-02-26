@@ -16,7 +16,7 @@ namespace DiplomProject.Backend.ImageProcessingService.Controllers
             _imageProcessor = imageProcessor;
         }
         [HttpPost]
-        public async Task<IActionResult> UploadImage(IFormFile file, [FromQuery]string fileDirectory)
+        public async Task<IActionResult> UploadImage(IFormFile file, [FromQuery] string fileDirectory)
         {
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded.");
@@ -29,7 +29,7 @@ namespace DiplomProject.Backend.ImageProcessingService.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> DownloadImage([FromQuery] string linkToFile)
+        public async Task<IActionResult> DownloadImage([FromQuery] string linkToFile, [FromQuery] bool binarized)
         {
             if (linkToFile == null || linkToFile == string.Empty)
                 return BadRequest("Empty link");
@@ -38,6 +38,11 @@ namespace DiplomProject.Backend.ImageProcessingService.Controllers
             if (stream == null || stream.Length == 0)
             {
                 return BadRequest("Download error");
+            }
+            if (binarized)
+            {
+                var binarizedStream = await _imageProcessor.BinarizeFile(stream);
+                return File(binarizedStream, $"image/{linkToFile.Substring(linkToFile.LastIndexOf('.') + 1)}");
             }
             return File(stream, $"image/{linkToFile.Substring(linkToFile.LastIndexOf('.') + 1)}");
         }
