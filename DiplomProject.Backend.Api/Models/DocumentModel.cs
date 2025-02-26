@@ -8,6 +8,17 @@ namespace DiplomProject.Backend.Api.Models
     {
         public DocumentModel(DataContext dbContext) : base(dbContext) { }
 
+        public async Task<ModelResponse<DocFile>> AddDocFileToDocument(DocFile docFile)
+        {
+            if (docFile == null)
+            {
+                return new ModelResponse<DocFile> { Value = null, HttpStatus = 400, Message = "EmptyRequest" };
+            }
+            _dbContext.ImageFiles.Add(docFile);
+            await _dbContext.SaveChangesAsync();
+            return new ModelResponse<DocFile> {Value = docFile, HttpStatus = 200, Message = "OK"};
+        }
+
         public async Task<ModelResponse<Document>> CreateNewDocument(DocumentParameterRequest request)
         {
             if (request == null)
@@ -74,5 +85,7 @@ namespace DiplomProject.Backend.Api.Models
             await _dbContext.SaveChangesAsync();
             return new ModelResponse<Document> { Value = document, HttpStatus = 200, Message = "OK" };
         }
+
+        
     }
 }

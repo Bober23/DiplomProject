@@ -14,14 +14,10 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<IAmazonS3>(provider =>
 {
+
     var config = new AmazonS3Config
     {
-        ServiceURL = "https://hb.vkcs.cloud", // Укажите эндпоинт
-        ForcePathStyle = true,
-        RegionEndpoint = RegionEndpoint.GetBySystemName("ru-msk"),
-        SignatureVersion = "4", // Используйте SigV4
-        UseAccelerateEndpoint = false,
-        
+        SignatureVersion = "2"
     };
 
     return new AmazonS3Client(config);

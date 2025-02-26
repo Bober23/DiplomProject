@@ -15,6 +15,7 @@ builder.Services.AddDbContext<DataContext>(options => options.UseNpgsql(database
 
 builder.Services.AddScoped<IUserModel, UserModel>();
 builder.Services.AddScoped<IDocumentModel, DocumentModel>();
+builder.Services.AddSingleton<HttpClient>();
 
 var app = builder.Build();
 

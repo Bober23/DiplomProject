@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DiplomProject.Backend.ImageProcessingService.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("[controller]")]
     [ApiController]
     public class ImageController : ControllerBase
     {
@@ -15,19 +15,31 @@ namespace DiplomProject.Backend.ImageProcessingService.Controllers
         {
             _imageProcessor = imageProcessor;
         }
-        [HttpPost("upload")]
-        public async Task<IActionResult> UploadImage(IFormFile file)
+        [HttpPost]
+        public async Task<IActionResult> UploadImage(IFormFile file, [FromQuery]string fileDirectory)
         {
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded.");
             using var memoryStream = new MemoryStream();
             await file.CopyToAsync(memoryStream);
-
-            // Сохранение в S3
-            var key = $"{Guid.NewGuid()}_{file.FileName}";
-            // Обработка изображения (например, сжатие)
-            await _imageProcessor.LoadToS3Cloud(memoryStream, key, file.ContentType);
+            var key = $"{fileDirectory}/{file.FileName}";
+            using var compressedStream = await _imageProcessor.CompressFile(memoryStream);
+            await _imageProcessor.LoadToS3Cloud(compressedStream, key, file.ContentType);
             return Ok(key);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> DownloadImage([FromQuery] string linkToFile)
+        {
+            if (linkToFile == null || linkToFile == string.Empty)
+                return BadRequest("Empty link");
+            // Обработка изображения (например, сжатие)
+            var stream = await _imageProcessor.GetFromS3Cloud(linkToFile);
+            if (stream == null || stream.Length == 0)
+            {
+                return BadRequest("Download error");
+            }
+            return File(stream, $"image/{linkToFile.Substring(linkToFile.LastIndexOf('.') + 1)}");
         }
     }
 }
