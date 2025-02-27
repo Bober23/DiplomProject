@@ -100,7 +100,7 @@ namespace DiplomProject.Backend.Api.Controllers
             formData.Add(fileContent, "file", file.FileName);
 
             // Отправляем POST-запрос
-            var response = await _http.PostAsync($"http://localhost:5127/Image?fileDirectory={parentDocument.User.Id}/{parentDocument.id}", formData);
+            var response = await _http.PostAsync($"http://localhost:5127/Image?fileDirectory={parentDocument.User.Id}/{parentDocument.id}/images", formData);
             if (!response.IsSuccessStatusCode)
             {
                 return BadRequest(response.Headers.ToString());
@@ -135,7 +135,7 @@ namespace DiplomProject.Backend.Api.Controllers
                     response = await _http.GetAsync($"http://localhost:5127/Image?linkToFile={image.LinkToFile}&binarized={binarized}");
                     if (!response.IsSuccessStatusCode)
                     {
-                        return BadRequest(response.Headers.ToString());
+                        return BadRequest("Cannot Load Images");
                     }
                     var entry = archive.CreateEntry(Path.GetFileName(image.Name), CompressionLevel.Fastest);
 

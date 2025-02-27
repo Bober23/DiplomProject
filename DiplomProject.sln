@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiplomProject.DTOLibrary", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiplomProject.Backend.ImageProcessingService", "DiplomProject.Backend.ImageProcessingService\DiplomProject.Backend.ImageProcessingService.csproj", "{C581C55F-0D54-4CF0-8775-AFEBB93CC528}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiplomProject.Backend.DocumentProcessingService", "DiplomProject.Backend.DocumentProcessingService\DiplomProject.Backend.DocumentProcessingService.csproj", "{8C76A820-17B0-4C1F-8717-5608737E2A4B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +37,10 @@ Global
 		{C581C55F-0D54-4CF0-8775-AFEBB93CC528}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C581C55F-0D54-4CF0-8775-AFEBB93CC528}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C581C55F-0D54-4CF0-8775-AFEBB93CC528}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C76A820-17B0-4C1F-8717-5608737E2A4B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C76A820-17B0-4C1F-8717-5608737E2A4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C76A820-17B0-4C1F-8717-5608737E2A4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C76A820-17B0-4C1F-8717-5608737E2A4B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -44,6 +50,7 @@ Global
 		{83C184B7-71D5-4A40-BC38-55E7E648E9CB} = {A6B2A062-233F-40EB-83CD-DADF7AAF9105}
 		{CF078B0B-6162-4B31-BC1E-61794DEFB300} = {42178B7B-AF30-462C-874C-D2ED9CD6F55C}
 		{C581C55F-0D54-4CF0-8775-AFEBB93CC528} = {83C184B7-71D5-4A40-BC38-55E7E648E9CB}
+		{8C76A820-17B0-4C1F-8717-5608737E2A4B} = {83C184B7-71D5-4A40-BC38-55E7E648E9CB}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {DC26CFB9-3328-4326-BBF5-66F1405EB446}
