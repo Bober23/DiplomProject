@@ -28,9 +28,6 @@ namespace DiplomProject.Backend.ImageProcessingService.Model
         public ImageProcessor(IAmazonS3 s3Client)
         {
             _s3Client = s3Client;
-            AWSConfigs.LoggingConfig.LogTo = LoggingOptions.Console;
-            AWSConfigs.LoggingConfig.LogResponses = ResponseLoggingOption.Always;
-            AWSConfigs.LoggingConfig.LogMetrics = true;
         }
 
         public async Task<MemoryStream> BinarizeFile(MemoryStream fileStream)
