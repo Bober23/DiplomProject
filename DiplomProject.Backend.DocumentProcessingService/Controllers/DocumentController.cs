@@ -46,12 +46,7 @@ namespace DiplomProject.Backend.DocumentProcessingService.Controllers
                         {
                             if (item.Type == MarkupType.Image)
                             {
-                                //TODO: REMOVE!!!!!!!
-                                FileStream fileStream = new FileStream("test.png", FileMode.Open, FileAccess.Read);
-                                var memoryStream = new MemoryStream();
-                                fileStream.CopyTo(memoryStream);
-                                //ENDREMOVE!!!!
-                                //var memoryStream = (MemoryStream)item.Content;
+                                var memoryStream = (MemoryStream)item.Content;
                                 // Добавление изображения
                                 memoryStream.Position = 0;
                                 ImageData imageData = ImageDataFactory.Create(memoryStream.ToArray());
