@@ -66,18 +66,19 @@ namespace DiplomProject.Backend.Api.Controllers
             return BadRequest(response.Message);
         }
 
-        [HttpPatch("name/{id:int}")]
-        public async Task<IActionResult> UpdateDocumentName(int id, [FromQuery] string name)
+        [HttpPatch("namecat/{id:int}")]
+        public async Task<IActionResult> UpdateDocumentName(int id, [FromBody]DocumentRenameRequest request)
         {
-            var response = await _model.UpdateDocumentName(id, name);
-            if (response.HttpStatus == 200)
+            var response = await _model.UpdateDocumentName(id, request.Name);
+            var response2 = await _model.UpdateDocumentCategory(id, request.Category);
+            if (response.HttpStatus == 200 && response2.HttpStatus == 200)
             {
                 return Ok(response.Value);
             }
             return BadRequest(response.Message);
         }
 
-        [HttpPatch("category/{id:int}")]
+        [HttpPatch("{id:int}")]
         public async Task<IActionResult> UpdateDocumentCategory(int id, [FromQuery] string category)
         {
             var response = await _model.UpdateDocumentCategory(id, category);
