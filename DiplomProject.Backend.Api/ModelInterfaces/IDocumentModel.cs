@@ -11,6 +11,7 @@ namespace DiplomProject.Backend.Api.Models
         public Task<ModelResponse<Document>> UpdateDocumentName(int id, string name);
         public Task<ModelResponse<Document>> DeleteDocument(int id);
         public Task<ModelResponse<Document>> GetDocumentById(int id);
+        public Task<ModelResponse<List<Document>>> GetDocumentByUserId(int id);
         public Task<ModelResponse<DocFile>> AddDocFileToDocument(DocFile docFile);
     }
 }

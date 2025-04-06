@@ -10,13 +10,27 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-string? databaseConnectionString = "Host=89.23.117.56;Port=5432;Database=Diplom;Username=Boberman;Password=bober23"; //TODO: спрятать констринг
+string? databaseConnectionString = "Host=37.252.22.178;Port=5432;Database=diplom;Username=bober;Password=bober"; //TODO: спрятать констринг
 builder.Services.AddDbContext<DataContext>(options => options.UseNpgsql(databaseConnectionString));
 
 builder.Services.AddScoped<IUserModel, UserModel>();
 builder.Services.AddScoped<IDocumentModel, DocumentModel>();
 builder.Services.AddSingleton<HttpClient>();
+var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: MyAllowSpecificOrigins,
+                      policy =>
+                      {
+                          policy.WithOrigins("http://localhost:3000"); // add the allowed origins  
+                          policy.AllowAnyOrigin()
+                          .AllowAnyHeader()
+                          .AllowAnyMethod();
 
+
+
+                      });
+});
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -26,7 +40,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 app.UseHttpsRedirection();
-
+app.UseCors(MyAllowSpecificOrigins);
 app.UseAuthorization();
 
 app.MapControllers();

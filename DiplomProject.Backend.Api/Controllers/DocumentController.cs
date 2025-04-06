@@ -33,6 +33,17 @@ namespace DiplomProject.Backend.Api.Controllers
             return BadRequest(response.Message);
         }
 
+        [HttpGet("user/{id:int}")]
+        public async Task<IActionResult> GetDocumentByUserId(int id)
+        {
+            var response = await _model.GetDocumentByUserId(id);
+            if (response.HttpStatus == 200)
+            {
+                return Ok(response.Value);
+            }
+            return BadRequest(response.Message);
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateNewDocument(DocumentParameterRequest request)
         {
@@ -44,7 +55,7 @@ namespace DiplomProject.Backend.Api.Controllers
             return BadRequest(response.Message);
         }
 
-        [HttpDelete]
+        [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteDocument(int id)
         {
             var response = await _model.DeleteDocument(id);

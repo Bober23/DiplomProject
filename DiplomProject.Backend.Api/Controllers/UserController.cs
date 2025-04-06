@@ -59,7 +59,7 @@ namespace DiplomProject.Backend.Api
             {
                 return Ok(response.Value);
             }
-            return BadRequest(response.Message);
+            return Unauthorized();
         }
 
         [HttpPost("new")]
@@ -84,7 +84,7 @@ namespace DiplomProject.Backend.Api
             return BadRequest(response.Message);
         }
 
-        [HttpDelete]
+        [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
             var response = await _model.DeleteUser(id);

@@ -62,6 +62,16 @@ namespace DiplomProject.Backend.Api.Models
             return new ModelResponse<Document> { Value = document, HttpStatus = 200, Message = "OK" };
         }
 
+        public async Task<ModelResponse<List<Document>>> GetDocumentByUserId(int id)
+        {
+            var documents = _dbContext.Documents.Where(x => x.User.Id == id);
+            if (documents == null)
+            {
+                return new ModelResponse<List<Document>> { Value = null, HttpStatus = 400, Message = "Document not found" };
+            }
+            return new ModelResponse<List<Document>> { Value = documents.ToList(), HttpStatus = 200, Message = "OK" };
+        }
+
         public async Task<ModelResponse<Document>> UpdateDocumentCategory(int id, string category)
         {
             var document = _dbContext.Documents.FirstOrDefault(x => x.id == id);
