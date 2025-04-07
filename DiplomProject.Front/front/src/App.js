@@ -5,6 +5,8 @@ import Header from './components/Header';
 import LoginPage from './pages/LoginPage';
 import RegistrationPage from './pages/RegistrationPage';
 import DocumentListPage from './pages/DocumentListPage';
+import DocumentImagesPage from './pages/DocumentImagesPage';
+import GenerateDocPage from './pages/GenerateDocPage';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -23,6 +25,8 @@ const App = () => {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegistrationPage />} />
+        <Route path="/documents/:documentId/images" element={<DocumentImagesPage />} />
+        <Route path="/documents/:documentId/generate" element={<GenerateDocPage />} />
         <Route
           path="/"
           element={

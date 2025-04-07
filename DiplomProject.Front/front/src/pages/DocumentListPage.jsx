@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../components/AuthContext';
-import { Table, Button, Space, Spin, message, Tag, Modal, Form, Input } from 'antd';
+import { Link, useNavigate } from 'react-router-dom';
+import { Table, Button, Space, Spin, message, Tag, Modal, Form, Input , Select } from 'antd';
 import { 
   PlusOutlined, 
   EditOutlined, 
@@ -15,7 +16,9 @@ const DocumentListPage = () => {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingDocument, setEditingDocument] = useState(null);
+  const navigate = useNavigate();
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -63,12 +66,50 @@ const DocumentListPage = () => {
     }
   };
 
-  const handleCreateDocument = (documentId) => {
-    message.info(`Создание документа ${documentId} (заглушка)`);
-    // Здесь будет запрос на сервер для создания документа
+  const handleCreateDocument = async () => {
+    try {
+      const values = await form.validateFields();
+      setLoading(true);
+      
+      const response = await fetch(`http://localhost:5120/api/Document`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: JSON.stringify({
+          name: values.name,
+          category: values.category,
+          extension: values.format,
+          authorId: user.id
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка создания документа');
+      }
+
+      const newDocument = await response.json();
+      navigate(`/documents/${newDocument.id}/images`);
+      setDocuments([...documents, newDocument]);
+      message.success('Документ успешно создан');
+      setIsCreateModalVisible(false);
+      form.resetFields();
+    } catch (error) {
+      message.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const showCreateModal = () => {
+    setIsCreateModalVisible(true);
   };
 
-  const handleSave = async () => {
+  const handleOpenImages = () => {
+    navigate(`/documents/${editingDocument.id}/images`);
+  };
+
+  const handleSaveChanges = async () => {
     try {
       const values = await form.validateFields();
       setLoading(true);
@@ -164,7 +205,7 @@ const DocumentListPage = () => {
               onClick={() => handleDownload(record.id, record.contentLink)}
             />
           )}
-          {record.imageFiles.length > 0 && (
+          {record.imageFiles!=null && record.imageFiles.length > 0 && (
             <Button
               icon={<FileAddOutlined />}
               type="primary"
@@ -188,10 +229,60 @@ const DocumentListPage = () => {
         type="primary"
         icon={<PlusOutlined />}
         style={{ marginBottom: 16 }}
+        onClick={showCreateModal}
       >
         Создать новый документ
       </Button>
+      <Modal
+        title="Создание нового документа"
+        visible={isCreateModalVisible}
+        onCancel={() => setIsCreateModalVisible(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setIsCreateModalVisible(false)}>
+            Отмена
+          </Button>,
+          <Button 
+            key="create"
+            type="primary"
+            icon={<SaveOutlined />}
+            loading={loading}
+            onClick={handleCreateDocument}
+          >
+            Создать
+          </Button>,
+        ]}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item
+            name="name"
+            label="Название документа"
+            rules={[{ required: true, message: 'Введите название документа' }]}
+          >
+            <Input placeholder="Введите название" />
+          </Form.Item>
 
+          <Form.Item
+            name="format"
+            label="Формат"
+            rules={[{ required: true, message: 'Выберите формат документа' }]}
+          >
+            <Select placeholder="Выберите формат">
+              <Select.Option value="DOCX">DOCX</Select.Option>
+              <Select.Option value="PDF">PDF</Select.Option>
+              <Select.Option value="ODT">ODT</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="category"
+            label="Категория"
+          >
+            <Input
+              placeholder="Выберите или введите категорию"
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
       <Spin spinning={loading}>
         <Table
           dataSource={documents}
@@ -214,7 +305,7 @@ const DocumentListPage = () => {
             type="primary" 
             icon={<SaveOutlined />}
             loading={loading}
-            onClick={handleSave}
+            onClick={handleSaveChanges}
           >
             Сохранить
           </Button>,
@@ -232,11 +323,18 @@ const DocumentListPage = () => {
           <Form.Item
             name="category"
             label="Категория"
-            rules={[{ required: true, message: 'Введите категорию' }]}
+            rules={[{ required: false, message: 'Введите категорию' }]}
           >
             <Input value={editingDocument?.category}/>
           </Form.Item>
         </Form>
+        <Button 
+            type="primary" 
+            loading={loading}
+            onClick={handleOpenImages}
+          >
+            Редактировать изображения документа
+          </Button>
       </Modal>
     </div>
   );

@@ -24,6 +24,7 @@ const LogoSection = styled.div`
   gap: 12px;
   font-size: 20px;
   font-weight: 600;
+  cursor: pointer;
 `;
 
 const ProfileMenu = styled.div`
@@ -135,6 +136,10 @@ const Header = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    const handleHomeClick = () => {
+        navigate(`/`);
+      };
+
     const handleMenuItemClick = (action) => {
         setShowMenu(false);
         switch (action) {
@@ -151,11 +156,12 @@ const Header = () => {
         <>
             <HeaderContainer>
                 <LogoSection>
-                    <span>Project Name</span>
+                    <span onClick={handleHomeClick}>Project Name</span>
                 </LogoSection>
 
                 <ProfileMenu onClick={() => setShowMenu(!showMenu)} ref={menuRef}>
                     <UserOutlined style={{ fontSize: '24px' }} />
+                    <span>{user.email.split('@')[0]}</span>
 
                     {showMenu && (
                         <DropdownMenu>
