@@ -50,22 +50,36 @@ const GenerateDocPage = () => {
    const initializeCanvas = useCallback((img, index) => {
     const canvas = canvasRefs.current[index];
     if (!canvas) return;
+
+    // Рассчитываем соотношение сторон
+    const parentWidth = canvas.parentElement.offsetWidth;
+    const scale = parentWidth / img.naturalWidth;
     
-    const ctx = canvas.getContext('2d');
+    // Устанавливаем внутренние размеры с учетом масштаба
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
-    ctx.drawImage(img, 0, 0);
+    
+    // Устанавливаем CSS размеры
+    canvas.style.width = `${parentWidth}px`;
+    canvas.style.height = `${img.naturalHeight * scale}px`;
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     imagesRef.current[index] = img;
   }, []);
 
-  // Обработчики рисования
-  const getCanvasCoordinates = (canvas, e) => {
+  const getCanvasCoordinates = useCallback((canvas, e) => {
     const rect = canvas.getBoundingClientRect();
+    
+    // Рассчитываем масштаб
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
     return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
     };
-  };
+  }, []);
 
   const startDrawing = useCallback((canvas, ctx, e) => {
     isDrawing.current = true;
@@ -164,7 +178,7 @@ const GenerateDocPage = () => {
 
       <div className="images-container">
         {images.map((imgSrc, index) => (
-          <div key={index} className="image-wrapper">
+          <div key={index} className="image-wrapper" style={{ width: '90%' }}>
             <canvas
               ref={el => canvasRefs.current[index] = el}
               className="image-canvas"
