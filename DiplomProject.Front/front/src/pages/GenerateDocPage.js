@@ -9,11 +9,16 @@ const GenerateDocPage = () => {
   const [images, setImages] = useState([]);
   const [selectedTool, setSelectedTool] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
   const canvasRefs = useRef([]);
   const imagesRef = useRef([]);
-  const [error, setError] = useState(null);
-  const isDrawing = useRef(false);
-  const lastPoint = useRef({ x: 0, y: 0 });
+  const selectionState = useRef({
+    startX: 0,
+    startY: 0,
+    isSelecting: false,
+    tempCanvas: null
+  });
 
   // Загрузка изображений
   useEffect(() => {
@@ -28,14 +33,13 @@ const GenerateDocPage = () => {
         const imagesPromises = [];
         zip.forEach((relativePath, file) => {
           imagesPromises.push(
-            file.async('blob').then(imgData => URL.createObjectURL(imgData))
-          );
+            file.async('blob').then(imgData => URL.createObjectURL(imgData)))
         });
+
         const imagesArray = await Promise.all(imagesPromises);
         setImages(imagesArray);
         setError(null);
       } catch (err) {
-        console.error('Error:', err);
         message.error('Не удалось загрузить изображения');
         setError(err.message);
       } finally {
@@ -46,20 +50,16 @@ const GenerateDocPage = () => {
     loadImages();
   }, [documentId]);
 
-   // Инициализация canvas
-   const initializeCanvas = useCallback((img, index) => {
+  // Инициализация canvas
+  const initializeCanvas = useCallback((img, index) => {
     const canvas = canvasRefs.current[index];
     if (!canvas) return;
 
-    // Рассчитываем соотношение сторон
     const parentWidth = canvas.parentElement.offsetWidth;
     const scale = parentWidth / img.naturalWidth;
     
-    // Устанавливаем внутренние размеры с учетом масштаба
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
-    
-    // Устанавливаем CSS размеры
     canvas.style.width = `${parentWidth}px`;
     canvas.style.height = `${img.naturalHeight * scale}px`;
 
@@ -68,84 +68,141 @@ const GenerateDocPage = () => {
     imagesRef.current[index] = img;
   }, []);
 
+  // Получение координат с учетом масштаба
   const getCanvasCoordinates = useCallback((canvas, e) => {
     const rect = canvas.getBoundingClientRect();
-    
-    // Рассчитываем масштаб
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    
     return {
       x: (e.clientX - rect.left) * scaleX,
       y: (e.clientY - rect.top) * scaleY
     };
   }, []);
 
-  const startDrawing = useCallback((canvas, ctx, e) => {
-    isDrawing.current = true;
-    lastPoint.current = getCanvasCoordinates(canvas, e);
-    ctx.beginPath();
-    ctx.moveTo(lastPoint.current.x, lastPoint.current.y);
-  }, []);
+  // Обработчики инструментов
+  const setupEraser = useCallback((canvas) => {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
 
-  const draw = useCallback((canvas, ctx, e) => {
-    if (!isDrawing.current) return;
-    
-    const newPoint = getCanvasCoordinates(canvas, e);
-    
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.lineWidth = 20;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = 'rgba(0,0,0,1)';
-    
-    ctx.lineTo(newPoint.x, newPoint.y);
-    ctx.stroke();
-    
-    lastPoint.current = newPoint;
-  }, []);
-
-  const stopDrawing = useCallback(() => {
-    isDrawing.current = false;
-  }, []);
-
-  // Эффект для инструментов
-  useEffect(() => {
-    const handleMouseDown = (index) => (e) => {
-      const canvas = canvasRefs.current[index];
-      if (!canvas || selectedTool !== 'eraser') return;
-      const ctx = canvas.getContext('2d');
-      startDrawing(canvas, ctx, e);
+    const handleMouseDown = (e) => {
+      isDrawing = true;
+      const coords = getCanvasCoordinates(canvas, e);
+      ctx.beginPath();
+      ctx.moveTo(coords.x, coords.y);
     };
 
-    const handleMouseMove = (index) => (e) => {
-      const canvas = canvasRefs.current[index];
-      if (!canvas || selectedTool !== 'eraser') return;
-      const ctx = canvas.getContext('2d');
-      draw(canvas, ctx, e);
+    const handleMouseMove = (e) => {
+      if (!isDrawing) return;
+      const coords = getCanvasCoordinates(canvas, e);
+      
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.lineWidth = 20;
+      ctx.lineCap = 'round';
+      
+      ctx.lineTo(coords.x, coords.y);
+      ctx.stroke();
     };
 
     const handleMouseUp = () => {
-      stopDrawing();
+      isDrawing = false;
+      ctx.closePath();
     };
 
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('mouseleave', handleMouseUp);
+
+    return () => {
+      canvas.removeEventListener('mousedown', handleMouseDown);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mouseup', handleMouseUp);
+      canvas.removeEventListener('mouseleave', handleMouseUp);
+    };
+  }, [getCanvasCoordinates]);
+
+  const setupSelection = useCallback((canvas) => {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    // Создаем временный canvas для сохранения состояния
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(canvas, 0, 0);
+    selectionState.current.tempCanvas = tempCanvas;
+
+    const handleMouseDown = (e) => {
+      selectionState.current.isSelecting = true;
+      const coords = getCanvasCoordinates(canvas, e);
+      selectionState.current.startX = coords.x;
+      selectionState.current.startY = coords.y;
+    };
+
+    const handleMouseMove = (e) => {
+      if (!selectionState.current.isSelecting) return;
+      
+      const coords = getCanvasCoordinates(canvas, e);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(tempCanvas, 0, 0);
+      
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.rect(
+        selectionState.current.startX,
+        selectionState.current.startY,
+        coords.x - selectionState.current.startX,
+        coords.y - selectionState.current.startY
+      );
+      ctx.stroke();
+    };
+
+    const handleMouseUp = () => {
+      selectionState.current.isSelecting = false;
+      tempCtx.drawImage(canvas, 0, 0);
+    };
+
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('mouseleave', handleMouseUp);
+
+    return () => {
+      canvas.removeEventListener('mousedown', handleMouseDown);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mouseup', handleMouseUp);
+      canvas.removeEventListener('mouseleave', handleMouseUp);
+    };
+  }, [getCanvasCoordinates]);
+
+  // Управление инструментами
+  useEffect(() => {
     const cleanups = canvasRefs.current.map((canvas, index) => {
-      if (!canvas) return;
+      if (!canvas || !imagesRef.current[index]) return;
 
-      canvas.addEventListener('mousedown', handleMouseDown(index));
-      canvas.addEventListener('mousemove', handleMouseMove(index));
-      canvas.addEventListener('mouseup', handleMouseUp);
-      canvas.addEventListener('mouseleave', handleMouseUp);
+      // Клонируем canvas для очистки обработчиков
+      const newCanvas = canvas.cloneNode(true);
+      canvas.parentNode.replaceChild(newCanvas, canvas);
+      canvasRefs.current[index] = newCanvas;
 
-      return () => {
-        canvas.removeEventListener('mousedown', handleMouseDown(index));
-        canvas.removeEventListener('mousemove', handleMouseMove(index));
-        canvas.removeEventListener('mouseup', handleMouseUp);
-        canvas.removeEventListener('mouseleave', handleMouseUp);
-      };
+      // Восстанавливаем изображение
+      const ctx = newCanvas.getContext('2d');
+      ctx.drawImage(imagesRef.current[index], 0, 0);
+
+      // Устанавливаем новые обработчики
+      if (selectedTool === 'eraser') {
+        return setupEraser(newCanvas);
+      }
+      if (selectedTool === 'selection') {
+        return setupSelection(newCanvas);
+      }
     });
 
-    return () => cleanups.forEach(cleanup => cleanup && cleanup());
-  }, [selectedTool, startDrawing, draw, stopDrawing]);
+    return () => cleanups.forEach(cleanup => cleanup?.());
+  }, [selectedTool, setupEraser, setupSelection]);
 
   if (error) return <div className="error-message">Ошибка: {error}</div>;
   
@@ -182,7 +239,10 @@ const GenerateDocPage = () => {
             <canvas
               ref={el => canvasRefs.current[index] = el}
               className="image-canvas"
-              style={{ cursor: selectedTool === 'eraser' ? 'crosshair' : 'default' }}
+              style={{ 
+                cursor: selectedTool === 'eraser' ? 'crosshair' 
+                  : selectedTool === 'selection' ? 'cell' : 'default' 
+              }}
             />
             <img 
               src={imgSrc} 
