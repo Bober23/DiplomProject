@@ -1,362 +1,186 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Button, Row, Col, Space, Spin, message, Typography } from 'antd';
-import { DeleteOutlined, HighlightOutlined } from '@ant-design/icons';
-import { Stage, Layer, Image as KonvaImage, Line, Rect } from 'react-konva';
-import styled from 'styled-components';
-import { useAuth } from '../components/AuthContext';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
+import { Button, Spin, message } from 'antd';
 import JSZip from 'jszip';
-
-const { Title, Text } = Typography;
+import './GenerateDocPage.css';
 
 const GenerateDocPage = () => {
   const { documentId } = useParams();
-  const { state } = useLocation();
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  
-  const [tool, setTool] = useState('eraser');
-  const [images, setImages] = useState(state?.images || []);
-  const [modifications, setModifications] = useState({});
-  const [loading, setLoading] = useState(!state?.images);
+  const [images, setImages] = useState([]);
+  const [selectedTool, setSelectedTool] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const canvasRefs = useRef([]);
+  const imagesRef = useRef([]);
   const [error, setError] = useState(null);
+  const isDrawing = useRef(false);
+  const lastPoint = useRef({ x: 0, y: 0 });
 
-  const processZipArchive = async (zipData) => {
-    const zip = await JSZip.loadAsync(zipData);
-    const files = Object.values(zip.files).filter(file => !file.dir);
-    
-    const processedImages = await Promise.all(
-      files.map(async (zipEntry) => {
-        try {
-          const fileData = await zipEntry.async('arraybuffer');
-          const blob = new Blob([fileData], { type: `image/${getFileType(zipEntry.name)}` });
-          return {
-            id: zipEntry.name,
-            name: zipEntry.name.split('/').pop(),
-            blob: blob,
-            size: zipEntry._data.uncompressedSize,
-            url: URL.createObjectURL(blob)
-          };
-        } catch (error) {
-          console.error('Ошибка обработки файла:', zipEntry.name, error);
-          return null;
-        }
-      })
-    );
-    
-    return processedImages
-      .filter(img => img !== null)
-      .sort((a, b) => a.name.localeCompare(b.name));
-  };
-
-  const getFileType = (filename) => {
-    const ext = filename.split('.').pop().toLowerCase();
-    return ext === 'jpg' ? 'jpeg' : ext;
-  };
-
+  // Загрузка изображений
   useEffect(() => {
-    const abortController = new AbortController();
-
-    const fetchData = async () => {
-      if (!state?.images) {
-        try {
-          setLoading(true);
-          const response = await fetch(
-            `http://localhost:5120/api/Document/images/${documentId}`,
-            {
-              headers: {
-                'Authorization': `Bearer ${user.token}`
-              },
-              signal: abortController.signal
-            }
+    const loadImages = async () => {
+      try {
+        const response = await fetch(`http://localhost:5120/api/Document/images/${documentId}`);
+        if (!response.ok) throw new Error('Ошибка загрузки архива');
+        
+        const zipData = await response.blob();
+        const zip = await JSZip.loadAsync(zipData);
+        
+        const imagesPromises = [];
+        zip.forEach((relativePath, file) => {
+          imagesPromises.push(
+            file.async('blob').then(imgData => URL.createObjectURL(imgData))
           );
-
-          if (!response.ok) throw new Error('Ошибка загрузки изображений');
-          const zipData = await response.blob();
-          const processedImages = await processZipArchive(zipData);
-          setImages(processedImages);
-        } catch (err) {
-          if (!abortController.signal.aborted) {
-            setError(err.message);
-          }
-        } finally {
-          if (!abortController.signal.aborted) {
-            setLoading(false);
-          }
-        }
+        });
+        const imagesArray = await Promise.all(imagesPromises);
+        setImages(imagesArray);
+        setError(null);
+      } catch (err) {
+        console.error('Error:', err);
+        message.error('Не удалось загрузить изображения');
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchData();
-    return () => abortController.abort();
-  }, [documentId, user.token, state]);
+    loadImages();
+  }, [documentId]);
 
-  const handleImageEdit = (imageId, newModifications) => {
-    setModifications(prev => ({
-      ...prev,
-      [imageId]: [...(prev[imageId] || []), newModifications]
-    }));
+   // Инициализация canvas
+   const initializeCanvas = useCallback((img, index) => {
+    const canvas = canvasRefs.current[index];
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    ctx.drawImage(img, 0, 0);
+    imagesRef.current[index] = img;
+  }, []);
+
+  // Обработчики рисования
+  const getCanvasCoordinates = (canvas, e) => {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
   };
 
-  const handleGenerate = () => {
-    message.success('Изменения сохранены. Генерация документа...');
-    navigate(-1);
-  };
+  const startDrawing = useCallback((canvas, ctx, e) => {
+    isDrawing.current = true;
+    lastPoint.current = getCanvasCoordinates(canvas, e);
+    ctx.beginPath();
+    ctx.moveTo(lastPoint.current.x, lastPoint.current.y);
+  }, []);
 
-  if (error) {
+  const draw = useCallback((canvas, ctx, e) => {
+    if (!isDrawing.current) return;
+    
+    const newPoint = getCanvasCoordinates(canvas, e);
+    
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.lineWidth = 20;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(0,0,0,1)';
+    
+    ctx.lineTo(newPoint.x, newPoint.y);
+    ctx.stroke();
+    
+    lastPoint.current = newPoint;
+  }, []);
+
+  const stopDrawing = useCallback(() => {
+    isDrawing.current = false;
+  }, []);
+
+  // Эффект для инструментов
+  useEffect(() => {
+    const handleMouseDown = (index) => (e) => {
+      const canvas = canvasRefs.current[index];
+      if (!canvas || selectedTool !== 'eraser') return;
+      const ctx = canvas.getContext('2d');
+      startDrawing(canvas, ctx, e);
+    };
+
+    const handleMouseMove = (index) => (e) => {
+      const canvas = canvasRefs.current[index];
+      if (!canvas || selectedTool !== 'eraser') return;
+      const ctx = canvas.getContext('2d');
+      draw(canvas, ctx, e);
+    };
+
+    const handleMouseUp = () => {
+      stopDrawing();
+    };
+
+    const cleanups = canvasRefs.current.map((canvas, index) => {
+      if (!canvas) return;
+
+      canvas.addEventListener('mousedown', handleMouseDown(index));
+      canvas.addEventListener('mousemove', handleMouseMove(index));
+      canvas.addEventListener('mouseup', handleMouseUp);
+      canvas.addEventListener('mouseleave', handleMouseUp);
+
+      return () => {
+        canvas.removeEventListener('mousedown', handleMouseDown(index));
+        canvas.removeEventListener('mousemove', handleMouseMove(index));
+        canvas.removeEventListener('mouseup', handleMouseUp);
+        canvas.removeEventListener('mouseleave', handleMouseUp);
+      };
+    });
+
+    return () => cleanups.forEach(cleanup => cleanup && cleanup());
+  }, [selectedTool, startDrawing, draw, stopDrawing]);
+
+  if (error) return <div className="error-message">Ошибка: {error}</div>;
+  
+  if (loading) {
     return (
-      <Container>
-        <ErrorContainer>
-          <Text type="danger" style={{ fontSize: 16 }}>{error}</Text>
-          <Button 
-            type="primary" 
-            style={{ marginTop: 16 }}
-            onClick={() => navigate(-1)}
-          >
-            Назад
-          </Button>
-        </ErrorContainer>
-      </Container>
+      <div className="loading-container">
+        <Spin size="large" tip="Загрузка изображений..." />
+      </div>
     );
   }
 
-  if (loading) {
-    return <Spin size="large" fullscreen />;
-  }
-
   return (
-    <Container>
-      <Toolbar>
-        <Space>
-          <Button
-            type={tool === 'eraser' ? 'primary' : 'default'}
-            icon={<DeleteOutlined />}
-            onClick={() => setTool('eraser')}
-          >
-            Ластик
-          </Button>
-          <Button
-            type={tool === 'selection' ? 'primary' : 'default'}
-            icon={<HighlightOutlined />}
-            onClick={() => setTool('selection')}
-          >
-            Выделение
-          </Button>
-          <Button type="primary" onClick={handleGenerate}>
-            Сгенерировать документ
-          </Button>
-        </Space>
-      </Toolbar>
-
-      <ImageGrid>
-        <Row gutter={[16, 16]}>
-          {images.map((image) => (
-            <Col key={image.id} xs={24} md={12} lg={8}>
-              <ImageEditor 
-                image={image}
-                tool={tool}
-                modifications={modifications[image.id] || []}
-                onModify={handleImageEdit}
-              />
-            </Col>
-          ))}
-        </Row>
-      </ImageGrid>
-    </Container>
-  );
-};
-
-const ImageEditor = ({ image, tool, modifications, onModify }) => {
-    const [size, setSize] = useState({ width: 0, height: 0 });
-    const [isDrawing, setIsDrawing] = useState(false);
-    const [startPoint, setStartPoint] = useState(null);
-    const [currentShape, setCurrentShape] = useState(null);
-    const imgRef = useRef(new window.Image());
-    const [imgUrl, setImgUrl] = useState('');
-  
-    useEffect(() => {
-      const initializeImage = async () => {
-        try {
-          // Если есть оригинальный Blob
-          if (image.blob instanceof Blob) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              imgRef.current.src = e.target.result;
-              imgRef.current.onload = () => {
-                setSize({
-                  width: imgRef.current.naturalWidth,
-                  height: imgRef.current.naturalHeight
-                });
-                setImgUrl(e.target.result);
-              };
-            };
-            reader.readAsDataURL(image.blob);
-          }
-          // Если изображение пришло через state (только URL)
-          else if (image.url) {
-            const response = await fetch(image.url);
-            const blob = await response.blob();
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              imgRef.current.src = e.target.result;
-              imgRef.current.onload = () => {
-                setSize({
-                  width: imgRef.current.naturalWidth,
-                  height: imgRef.current.naturalHeight
-                });
-                setImgUrl(e.target.result);
-              };
-            };
-            reader.readAsDataURL(blob);
-          }
-        } catch (error) {
-          console.error('Ошибка загрузки изображения:', error);
-        }
-      };
-  
-      initializeImage();
-  
-      return () => {
-        if (imgUrl) URL.revokeObjectURL(imgUrl);
-      };
-    }, [image]);
-
-  const handleMouseDown = (e) => {
-    const stage = e.target.getStage();
-    const pos = stage.getPointerPosition();
-    setIsDrawing(true);
-    setStartPoint(pos);
-    
-    if (tool === 'selection') {
-      setCurrentShape({
-        type: 'rect',
-        x: pos.x,
-        y: pos.y,
-        width: 0,
-        height: 0,
-        stroke: 'red',
-        strokeWidth: 2
-      });
-    }
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDrawing || !startPoint) return;
-
-    const stage = e.target.getStage();
-    const pos = stage.getPointerPosition();
-    
-    if (tool === 'eraser') {
-      const line = {
-        type: 'line',
-        points: [startPoint.x, startPoint.y, pos.x, pos.y],
-        stroke: 'white',
-        strokeWidth: 20,
-        lineCap: 'round',
-        lineJoin: 'round'
-      };
-      onModify(image.id, line);
-      setStartPoint(pos);
-    }
-
-    if (tool === 'selection' && currentShape) {
-      setCurrentShape({
-        ...currentShape,
-        width: pos.x - startPoint.x,
-        height: pos.y - startPoint.y
-      });
-    }
-  };
-
-  const handleMouseUp = () => {
-    if (tool === 'selection' && currentShape) {
-      onModify(image.id, currentShape);
-    }
-    setIsDrawing(false);
-    setStartPoint(null);
-    setCurrentShape(null);
-  };
-
-  return (
-    <EditorContainer>
-      {(
-        <Stage
-          width={size.width}
-          height={size.height}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
+    <div className="generate-doc-page">
+      <div className="toolbar">
+        <Button
+          type={selectedTool === 'eraser' ? 'primary' : 'default'}
+          onClick={() => setSelectedTool('eraser')}
+          style={{ backgroundColor: selectedTool === 'eraser' ? '#2383E2' : '' }}
         >
-          <Layer>
-            <KonvaImage image={imgRef.current} />
-          {modifications.map((shape, i) => (
-            shape.type === 'line' ? (
-              <Line key={i} {...shape} />
-            ) : (
-              <Rect key={i} {...shape} />
-            )
-          ))}
-          {currentShape && <Rect {...currentShape} />}
-          </Layer>
-        </Stage>
-      )}
-    </EditorContainer>
+          Ластик
+        </Button>
+        <Button
+          type={selectedTool === 'selection' ? 'primary' : 'default'}
+          onClick={() => setSelectedTool('selection')}
+          style={{ backgroundColor: selectedTool === 'selection' ? '#2383E2' : '' }}
+        >
+          Выделение
+        </Button>
+      </div>
+
+      <div className="images-container">
+        {images.map((imgSrc, index) => (
+          <div key={index} className="image-wrapper">
+            <canvas
+              ref={el => canvasRefs.current[index] = el}
+              className="image-canvas"
+              style={{ cursor: selectedTool === 'eraser' ? 'crosshair' : 'default' }}
+            />
+            <img 
+              src={imgSrc} 
+              alt={`Document ${index}`}
+              onLoad={(e) => initializeCanvas(e.target, index)}
+              style={{ display: 'none' }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 };
-
-// Стилизованные компоненты
-const Container = styled.div`
-  padding: 24px;
-  max-width: 1600px;
-  margin: 0 auto;
-`;
-
-const Toolbar = styled.div`
-  margin-bottom: 24px;
-  padding: 16px;
-  background: #f8f9fa;
-  border-radius: 8px;
-`;
-
-const ImageGrid = styled.div`
-  margin-top: 20px;
-`;
-
-const EditorContainer = styled.div`
-  position: relative;
-  border: 2px solid #f0f0f0;
-  border-radius: 8px;
-  overflow: hidden;
-  margin-bottom: 16px;
-  background: white;
-
-  canvas {
-    width: 100% !important;
-    height: auto !important;
-    max-height: 600px;
-  }
-`;
-
-const ImageInfo = styled.div`
-  padding: 8px 16px;
-  background: rgba(0, 0, 0, 0.65);
-  color: white;
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-`;
-
-const ErrorContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 60vh;
-  text-align: center;
-`;
 
 export default GenerateDocPage;

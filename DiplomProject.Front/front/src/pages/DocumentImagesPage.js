@@ -132,9 +132,7 @@ const DocumentImages = () => {
   }, [documentId, user.token]);
 
   const handleGenerateDocument = () => {
-    navigate(`/documents/${documentId}/generate`, { 
-      state: { images } 
-    });
+    navigate(`/documents/${documentId}/generate`, { });
   };
 
   const handleFileSelect = async (e) => {
