@@ -46,5 +46,7 @@ namespace DiplomProject.Backend.ImageProcessingService.Controllers
             }
             return File(stream, $"image/{linkToFile.Substring(linkToFile.LastIndexOf('.') + 1)}");
         }
+
+        
     }
 }

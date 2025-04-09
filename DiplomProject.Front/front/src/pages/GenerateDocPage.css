@@ -3,9 +3,10 @@
   }
   
   .toolbar {
-    margin-bottom: 20px;
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px;
   }
   
   .images-container {
@@ -29,4 +30,10 @@
     touch-action: none; /* Для мобильных устройств */
     background: white; /* Белый фон вместо прозрачного */
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); /* Видимая рамка */
+  }
+
+  .undo-redo-container {
+    display: flex;
+    gap: 5px;
+    margin-left: 20px;
   }

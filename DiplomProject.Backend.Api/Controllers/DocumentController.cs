@@ -3,9 +3,12 @@ using DiplomProject.Backend.Api.Requests;
 using DiplomProject.DTOLibrary;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
+using System.Drawing;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Xml.Linq;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace DiplomProject.Backend.Api.Controllers
@@ -161,6 +164,62 @@ namespace DiplomProject.Backend.Api.Controllers
 
             archiveStream.Position = 0; // Сбрасываем позицию потока
             return File(archiveStream.ToArray(), "application/zip", "images.zip");
+        }
+
+        [HttpPost("generate/{id:int}")]
+        public async Task<IActionResult> GenerateDoc(int id)
+        {
+            try
+            {
+                if (!Request.HasFormContentType)
+                    return BadRequest("Expected form-data request");
+
+                var form = await Request.ReadFormAsync();
+
+                // Обработка архива с изображениями
+                var imagesFile = form.Files["images"];
+                if (imagesFile == null || imagesFile.Length == 0)
+                    return BadRequest("Images archive is required");
+
+                // Обработка данных о выделениях
+                var selectionsJson = form["selections"];
+                if (string.IsNullOrEmpty(selectionsJson))
+                    return BadRequest("Selections data is required");
+
+                // Десериализация выделений
+                var selections = JsonConvert.DeserializeObject<List<ImageSelection>>(selectionsJson);
+                int counter = 0;
+                while (counter < selections.Count)
+                {
+                    var selection = selections[counter];
+                    if (selection.Points.Count != 4)
+                    {
+                        selections.Remove(selection);
+                    }
+                    int firstX = (int)Math.Round(selection.Points[0].X);
+                    int firstY = (int)Math.Round(selection.Points[0].Y);
+                    if (selection.Points.All(point => (int)Math.Round(point.X) == firstX) || selection.Points.All(point => (int)Math.Round(point.Y) == firstY))
+                    {
+                        selections.Remove(selection);
+                    }
+                    else if (selections.Count(x => x.Id == selection.Id && x.Points[0].Y == selection.Points[0].Y) > 1)
+                    {
+                        selections.Remove(selection);
+                    }
+                    else
+                    {
+                        counter++;
+                    }
+                    
+                }
+                Console.WriteLine(imagesFile.ToString());
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+            
         }
     }
 }

@@ -4,16 +4,26 @@ import { Button, Spin, message } from 'antd';
 import JSZip from 'jszip';
 import './GenerateDocPage.css';
 
+const MAX_HISTORY_STEPS = 100;
+
 const GenerateDocPage = () => {
   const { documentId } = useParams();
   const [images, setImages] = useState([]);
   const [selectedTool, setSelectedTool] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+  const [selections, setSelections] = useState([]);
+
+  const selectionsRef = useRef([]);
   const canvasRefs = useRef([]);
   const buffersRef = useRef([]);
   const imagesRef = useRef([]);
+  const history = useRef([]);
+  const historyPosition = useRef(-1);
+
+  useEffect(() => {
+    selectionsRef.current = selections;
+  }, [selections]);
 
   // Загрузка изображений
   useEffect(() => {
@@ -21,15 +31,16 @@ const GenerateDocPage = () => {
       try {
         const response = await fetch(`http://localhost:5120/api/Document/images/${documentId}`);
         if (!response.ok) throw new Error('Ошибка загрузки архива');
-        
+
         const zipData = await response.blob();
         const zip = await JSZip.loadAsync(zipData);
-        
+
         const imagesArray = await Promise.all(
-          Object.values(zip.files).map(file => 
-            file.async('blob').then(imgData => URL.createObjectURL(imgData)))
+          Object.values(zip.files).map(file =>
+            file.async('blob').then(imgData => URL.createObjectURL(imgData))
+          )
         );
-        
+
         setImages(imagesArray);
         setError(null);
       } catch (err) {
@@ -43,6 +54,58 @@ const GenerateDocPage = () => {
     loadImages();
   }, [documentId]);
 
+  const handleGenerate = async () => {
+    try {
+      // Сбор изображений
+      const blobs = await Promise.all(
+        canvasRefs.current.map((canvas, index) => {
+          if (!canvas) return Promise.resolve(null);
+          return new Promise((resolve) => {
+            canvas.toBlob((blob) => {
+              resolve(blob ? { blob, index } : null);
+            }, 'image/png');
+          });
+        })
+      );
+  
+      // Создание ZIP
+      const zip = new JSZip();
+      blobs.forEach(blobInfo => {
+        if (blobInfo?.blob) {
+          zip.file(`image_${blobInfo.index}.png`, blobInfo.blob);
+        }
+      });
+  
+      // Сбор выделений
+      const selectionsData = [];
+      selectionsRef.current.forEach((imageSelections, index) => {
+        imageSelections?.forEach(selection => {
+          selectionsData.push({
+            id: index.toString(),
+            points: selection.points
+          });
+        });
+      });
+  
+      // Формирование запроса
+      const formData = new FormData();
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      formData.append('images', zipBlob, 'images.zip');
+      formData.append('selections', JSON.stringify(selectionsData));
+  
+      // Отправка
+      const response = await fetch(
+        `http://localhost:5120/api/Document/generate/${documentId}`,
+        { method: 'POST', body: formData }
+      );
+  
+      if (!response.ok) throw new Error('Ошибка отправки');
+      message.success('Данные отправлены!');
+    } catch (error) {
+      message.error('Ошибка: ' + error.message);
+    }
+  };
+
   // Инициализация canvas
   const initializeCanvas = useCallback((img, index) => {
     const canvas = canvasRefs.current[index];
@@ -50,18 +113,17 @@ const GenerateDocPage = () => {
 
     const parentWidth = canvas.parentElement.offsetWidth;
     const scale = parentWidth / img.naturalWidth;
-    
+
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
     canvas.style.width = `${parentWidth}px`;
     canvas.style.height = `${img.naturalHeight * scale}px`;
 
-    // Инициализация буферов
     buffersRef.current[index] = {
       main: document.createElement('canvas'),
       temp: document.createElement('canvas')
     };
-    
+
     const { main, temp } = buffersRef.current[index];
     main.width = canvas.width;
     main.height = canvas.height;
@@ -70,11 +132,85 @@ const GenerateDocPage = () => {
 
     const mainCtx = main.getContext('2d');
     mainCtx.drawImage(img, 0, 0);
-    
+
     const ctx = canvas.getContext('2d');
     ctx.drawImage(main, 0, 0);
     imagesRef.current[index] = img;
+
+    // Сохраняем начальное состояние
+    saveHistoryState(index);
   }, []);
+
+  // Сохранение состояния в историю
+  const saveHistoryState = (index) => {
+    const buffer = buffersRef.current[index];
+    if (!buffer) return;
+    const stateCanvas = document.createElement('canvas');
+    stateCanvas.width = buffer.main.width;
+    stateCanvas.height = buffer.main.height;
+    const stateCtx = stateCanvas.getContext('2d');
+    stateCtx.drawImage(buffer.main, 0, 0);
+
+    const newEntry = {
+      index,
+      state: stateCanvas,
+      selections: [...(selectionsRef.current[index] || [])]
+    };
+
+    // Если текущая позиция не в конце истории - обрезаем
+    if (historyPosition.current < history.current.length - 1) {
+      history.current = history.current.slice(0, historyPosition.current + 1);
+    }
+
+    history.current.push(newEntry);
+    historyPosition.current = history.current.length - 1;
+
+    // Ограничиваем размер истории
+    if (history.current.length > MAX_HISTORY_STEPS) {
+      history.current.shift();
+      historyPosition.current--;
+    }
+  };
+
+  // Отмена действия
+  const undo = () => {
+    if (historyPosition.current < 0) return;
+    const newSelections = [...selectionsRef.current];
+    newSelections[prevEntry.index] = prevEntry.selections;
+    setSelections(newSelections);
+    
+    const currentEntry = history.current[historyPosition.current];
+    const prevEntry = history.current[historyPosition.current - 1];
+
+    // Восстанавливаем предыдущее состояние
+    if (prevEntry) {
+      const buffer = buffersRef.current[prevEntry.index];
+      const canvas = canvasRefs.current[prevEntry.index];
+
+      if (buffer && canvas) {
+        buffer.main.getContext('2d').drawImage(prevEntry.state, 0, 0);
+        canvas.getContext('2d').drawImage(prevEntry.state, 0, 0);
+      }
+    }
+
+    historyPosition.current--;
+  };
+
+  // Повтор действия
+  const redo = () => {
+    if (historyPosition.current >= history.current.length - 1) return;
+
+    historyPosition.current++;
+    const entry = history.current[historyPosition.current];
+
+    const buffer = buffersRef.current[entry.index];
+    const canvas = canvasRefs.current[entry.index];
+
+    if (buffer && canvas) {
+      buffer.main.getContext('2d').drawImage(entry.state, 0, 0);
+      canvas.getContext('2d').drawImage(entry.state, 0, 0);
+    }
+  };
 
   // Получение координат
   const getCanvasCoordinates = useCallback((canvas, e) => {
@@ -97,6 +233,7 @@ const GenerateDocPage = () => {
     let lastPoint = null;
 
     const startDrawing = (e) => {
+      saveHistoryState(index);
       isDrawing = true;
       lastPoint = getCanvasCoordinates(canvas, e);
       ctx.beginPath();
@@ -109,11 +246,10 @@ const GenerateDocPage = () => {
     const draw = (e) => {
       if (!isDrawing) return;
       const newPoint = getCanvasCoordinates(canvas, e);
-      
+
       ctx.lineTo(newPoint.x, newPoint.y);
       ctx.stroke();
-      
-      // Рисуем в основной буфер
+
       mainCtx.globalCompositeOperation = 'destination-out';
       mainCtx.lineWidth = 20;
       mainCtx.lineCap = 'round';
@@ -128,6 +264,7 @@ const GenerateDocPage = () => {
     const endDrawing = () => {
       isDrawing = false;
       ctx.closePath();
+      saveHistoryState(index);
     };
 
     canvas.addEventListener('mousedown', startDrawing);
@@ -155,6 +292,7 @@ const GenerateDocPage = () => {
     let startX = 0, startY = 0;
 
     const startSelection = (e) => {
+      saveHistoryState(index);
       isSelecting = true;
       const coords = getCanvasCoordinates(canvas, e);
       startX = coords.x;
@@ -164,18 +302,100 @@ const GenerateDocPage = () => {
     const drawSelection = (e) => {
       if (!isSelecting) return;
       const coords = getCanvasCoordinates(canvas, e);
-      
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(buffer.main, 0, 0);
-      
+
       ctx.strokeStyle = 'red';
       ctx.lineWidth = 2;
-      ctx.strokeRect(startX, startY, coords.x - startX, coords.y - startY);
+
+      // Рассчитываем границы прямоугольника
+      const x1 = Math.min(startX, coords.x);
+      const y1 = Math.min(startY, coords.y);
+      const x2 = Math.max(startX, coords.x);
+      const y2 = Math.max(startY, coords.y);
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+
+      ctx.save();
+
+      // Рисуем верхнюю, левую и правую стороны
+      ctx.beginPath();
+      // Верхняя линия
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y1);
+      // Левая линия
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x1, y2);
+      // Правая линия
+      ctx.moveTo(x2, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+
+      // Рисуем нижнюю линию с пунктирными продолжениями
+      ctx.beginPath();
+      ctx.setLineDash([5, 5]); // Настройки пунктира
+
+      // Левая пунктирная часть
+      if (x1 > 0) {
+        ctx.moveTo(0, y2);
+        ctx.lineTo(x1, y2);
+      }
+
+      // Средняя сплошная часть
+      ctx.setLineDash([]);
+      ctx.moveTo(x1, y2);
+      ctx.lineTo(x2, y2);
+
+      // Правая пунктирная часть
+      if (x2 < canvasWidth) {
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(canvasWidth, y2);
+      }
+
+      ctx.stroke();
+
+      ctx.restore(); // Восстанавливаем настройки контекста
     };
 
-    const endSelection = () => {
+    const endSelection = (e) => {
+      if (!isSelecting) return;
       isSelecting = false;
+    
+      if (!e) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(buffer.main, 0, 0);
+        return;
+      }
+    
+      const coords = getCanvasCoordinates(canvas, e);
+      const currentX = coords.x;
+      const currentY = coords.y;
+    
+      const x1 = Math.min(startX, currentX);
+      const y1 = Math.min(startY, currentY);
+      const x2 = Math.max(startX, currentX);
+      const y2 = Math.max(startY, currentY);
+    
+      const newSelection = {
+        points: [
+          { x: x1, y: y1 },
+          { x: x2, y: y1 },
+          { x: x1, y: y2 },
+          { x: x2, y: y2 },
+        ]
+      };
+    
+      setSelections(prev => {
+        const newSelections = [...prev];
+        if (!newSelections[index]) newSelections[index] = [];
+        newSelections[index].push(newSelection);
+        return newSelections;
+      });
+    
       mainCtx.drawImage(canvas, 0, 0);
+      saveHistoryState(index);
     };
 
     canvas.addEventListener('mousedown', startSelection);
@@ -191,26 +411,27 @@ const GenerateDocPage = () => {
     };
   }, [getCanvasCoordinates]);
 
+
   // Эффект переключения инструментов
   useEffect(() => {
     const cleanups = canvasRefs.current.map((canvas, index) => {
       if (!canvas || !buffersRef.current[index]) return;
-      
+
       const ctx = canvas.getContext('2d');
       ctx.drawImage(buffersRef.current[index].main, 0, 0);
 
-      return selectedTool === 'eraser' 
+      return selectedTool === 'eraser'
         ? setupEraser(index)
         : selectedTool === 'selection'
-        ? setupSelection(index)
-        : null;
+          ? setupSelection(index)
+          : null;
     });
 
     return () => cleanups.forEach(cleanup => cleanup?.());
   }, [selectedTool, setupEraser, setupSelection]);
 
   if (error) return <div className="error-message">Ошибка: {error}</div>;
-  
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -236,6 +457,22 @@ const GenerateDocPage = () => {
         >
           Выделение
         </Button>
+
+        <div className="undo-redo-container">
+          <Button
+            onClick={undo}
+            disabled={historyPosition.current < 0}
+          >
+            Undo
+          </Button>
+        </div>
+        <Button
+          type="primary"
+          onClick={handleGenerate}
+          style={{ backgroundColor: '#2383E2', marginLeft: 'auto' }}
+        >
+          Сгенерировать
+        </Button>
       </div>
 
       <div className="images-container">
@@ -244,14 +481,14 @@ const GenerateDocPage = () => {
             <canvas
               ref={el => canvasRefs.current[index] = el}
               className="image-canvas"
-              style={{ 
-                cursor: selectedTool === 'eraser' ? 'crosshair' 
+              style={{
+                cursor: selectedTool === 'eraser' ? 'crosshair'
                   : selectedTool === 'selection' ? 'cell' : 'default',
                 background: 'white'
               }}
             />
-            <img 
-              src={imgSrc} 
+            <img
+              src={imgSrc}
               alt={`Document ${index}`}
               onLoad={(e) => initializeCanvas(e.target, index)}
               style={{ display: 'none' }}
