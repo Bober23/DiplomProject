@@ -13,6 +13,7 @@ using iText.Kernel.Font;
 using Xceed.Words.NET;
 using Org.BouncyCastle.Utilities.Zlib;
 using Org.BouncyCastle.Crypto.IO;
+using Org.BouncyCastle.Asn1.IsisMtt.X509;
 
 namespace DiplomProject.Backend.DocumentProcessingService.Controllers
 {
@@ -46,10 +47,9 @@ namespace DiplomProject.Backend.DocumentProcessingService.Controllers
                         {
                             if (item.Type == MarkupType.Image)
                             {
-                                var memoryStream = (MemoryStream)item.Content;
-                                // Добавление изображения
-                                memoryStream.Position = 0;
-                                ImageData imageData = ImageDataFactory.Create(memoryStream.ToArray());
+                                string content = item.Content.ToString();
+                                byte[] imageBytes = Convert.FromBase64String(content);
+                                ImageData imageData = ImageDataFactory.Create(imageBytes);
                                 Image image = new Image(imageData);
                                 var currentArea = document.GetRenderer().GetCurrentArea().GetBBox();
                                 float documentWidth = currentArea.GetWidth() - document.GetLeftMargin() - document.GetRightMargin();
@@ -111,12 +111,9 @@ namespace DiplomProject.Backend.DocumentProcessingService.Controllers
                         }
                         else if (item.Type == MarkupType.Image)
                         {
-                            //TODO: REMOVE!!!!!!!
-                            FileStream fileStream = new FileStream("test.png", FileMode.Open, FileAccess.Read);
-                            var imageStream = new MemoryStream();
-                            fileStream.CopyTo(imageStream);
-                            //ENDREMOVE!!!!
-                            //var imageStream = (MemoryStream)item.Content;
+                            string content = item.Content.ToString();
+                            byte[] imageBytes = Convert.FromBase64String(content);
+                            var imageStream = new MemoryStream(imageBytes);
                             // Добавляем изображение
                             imageStream.Position = 0; // Сбрасываем позицию потока
                             var image = doc.AddImage(imageStream);
@@ -138,6 +135,18 @@ namespace DiplomProject.Backend.DocumentProcessingService.Controllers
             }
         }
 
+        [HttpGet("doc")]
+        public async Task<IActionResult> GetDocument([FromQuery]string link)
+        {
+            var doc = await _loader.GetFromS3Cloud(link);
+            string extension = link.Substring(link.LastIndexOf('.') + 1).ToLower();
+            if (doc == null)
+            {
+                return BadRequest();
+            }
+            return File(doc.ToArray(), $"application/{extension}");
+        }
 
+        
     }
 }

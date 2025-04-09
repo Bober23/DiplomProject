@@ -14,6 +14,7 @@ using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
+using DiplomProject.DTOLibrary;
 
 namespace DiplomProject.Backend.ImageProcessingService.Model
 {
@@ -103,6 +104,110 @@ namespace DiplomProject.Backend.ImageProcessingService.Model
             return fileUri;
         }
 
+        public ImageProcessorResult SplitImage(MemoryStream imageStream, List<ImageSelection> selections)
+        {
+            imageStream.Position = 0;
+            var result = new ImageProcessorResult();
+
+            // Загрузка и модификация изображения
+            Image<Rgba32> originalImage = Image.Load<Rgba32>(imageStream);
+            Image<Rgba32> modifiedImage = originalImage.Clone();
+            result.CroppedRegions = new List<Image<Rgba32>>();
+
+            // Список для координат разделения
+            var splitYCoordinates = new List<int>();
+            if (selections == null || selections.Count == 0)
+            {
+                result.SplitSegments = new List<Image<Rgba32>>();
+                result.SplitSegments.Add(originalImage);
+                return result;
+            }
+            foreach (var selection in selections)
+            {
+                List<Point> points = new List<Point>();
+                foreach (var point in selection.Points)
+                {
+                    points.Add(new Point(x: (int)point.X, y: (int)point.Y));
+                }
+                // Преобразуем точки выделения в прямоугольник
+                var (x, y, width, height) = ConvertPointsToRectangle(points);
+                if (width <= 0 || height <= 0) continue;
+
+                // Сохраняем Y-координату для разделения
+                splitYCoordinates.Add(y + height); // Добавляем нижнюю границу (максимальный Y)
+
+                // Вырезаем регион
+                var cropped = originalImage.Clone(ctx => ctx.Crop(new Rectangle(x, y, width, height)));
+                result.CroppedRegions.Add(cropped);
+
+                // Закрашиваем белым
+                modifiedImage.Mutate(ctx => ctx
+                    .Fill(Color.White, new Rectangle(x, y, width, height)));
+            }
+
+            // Добавляем границы изображения
+            splitYCoordinates.Add(0);
+            splitYCoordinates.Add(modifiedImage.Height);
+
+            // Обработка координат разделения
+            result.SplitSegments = SplitImageByYCoordinates(modifiedImage, splitYCoordinates);
+            result.ModifiedImage = modifiedImage;
+
+            return result;
+        }
+
+        private List<Image<Rgba32>> SplitImageByYCoordinates(Image<Rgba32> image, List<int> yCoordinates)
+        {
+            // Убираем дубликаты и сортируем
+            var uniqueSortedY = yCoordinates
+                .Distinct()
+                .OrderBy(y => y)
+                .Where(y => y >= 0 && y <= image.Height)
+                .ToList();
+
+            var segments = new List<Image<Rgba32>>();
+            int previousY = 0;
+
+            foreach (var currentY in uniqueSortedY)
+            {
+                if (currentY <= previousY) continue;
+
+                int segmentHeight = currentY - previousY;
+
+                if (segmentHeight > 0)
+                {
+                    var segment = image.Clone(ctx => ctx
+                        .Crop(new Rectangle(0, previousY, image.Width, segmentHeight)));
+
+                    segments.Add(segment);
+                }
+
+                previousY = currentY;
+            }
+
+            return segments;
+        }
+
+        private (int x, int y, int width, int height)
+            ConvertPointsToRectangle(List<Point> points)
+        {
+            if (points.Count != 4)
+                throw new ArgumentException("Selection must contain exactly 4 points");
+
+            // Находим границы прямоугольника
+            int x1 = points.Min(p => p.X);
+            int y1 = points.Min(p => p.Y);
+            int x2 = points.Max(p => p.X);
+            int y2 = points.Max(p => p.Y);
+
+            return (
+                x: x1,
+                y: y1,
+                width: x2 - x1,
+                height: y2 - y1
+            );
+        }
+
         private byte[] AdaptiveBinarization(byte[] image, int width, int height, int blockSize, int constant)
         {
             byte[] binaryImage = new byte[image.Length];
@@ -171,5 +276,12 @@ namespace DiplomProject.Backend.ImageProcessingService.Model
             return grayscaleData;
         }
 
+    }
+
+    public class ImageProcessorResult
+    {
+        public Image<Rgba32> ModifiedImage { get; set; }
+        public List<Image<Rgba32>> CroppedRegions { get; set; }
+        public List<Image<Rgba32>> SplitSegments { get; set; }
     }
 }

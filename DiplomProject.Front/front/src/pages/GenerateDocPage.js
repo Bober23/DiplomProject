@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, Spin, message } from 'antd';
+import { Link, useNavigate } from 'react-router-dom';
 import JSZip from 'jszip';
 import './GenerateDocPage.css';
 
@@ -13,7 +14,7 @@ const GenerateDocPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selections, setSelections] = useState([]);
-
+  const navigate = useNavigate();
   const selectionsRef = useRef([]);
   const canvasRefs = useRef([]);
   const buffersRef = useRef([]);
@@ -57,6 +58,7 @@ const GenerateDocPage = () => {
   const handleGenerate = async () => {
     try {
       // Сбор изображений
+      setLoading(true);
       const blobs = await Promise.all(
         canvasRefs.current.map((canvas, index) => {
           if (!canvas) return Promise.resolve(null);
@@ -103,6 +105,10 @@ const GenerateDocPage = () => {
       message.success('Данные отправлены!');
     } catch (error) {
       message.error('Ошибка: ' + error.message);
+    }
+    finally{
+      setLoading(false);
+      navigate(`/`);
     }
   };
 
@@ -178,7 +184,7 @@ const GenerateDocPage = () => {
     const newSelections = [...selectionsRef.current];
     newSelections[prevEntry.index] = prevEntry.selections;
     setSelections(newSelections);
-    
+
     const currentEntry = history.current[historyPosition.current];
     const prevEntry = history.current[historyPosition.current - 1];
 

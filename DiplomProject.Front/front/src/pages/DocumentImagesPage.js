@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { 
-  Button, 
-  Row, 
-  Col, 
-  Card, 
-  Image, 
-  Space, 
-  Spin, 
-  Typography, 
+import {
+  Button,
+  Row,
+  Col,
+  Card,
+  Image,
+  Space,
+  Spin,
+  Typography,
   Progress,
-  message 
+  message
 } from 'antd';
-import { PlusOutlined, FileAddOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, FileAddOutlined, CloseCircleOutlined, DeleteFilled } from '@ant-design/icons';
 import styled from 'styled-components';
 import { useAuth } from '../components/AuthContext';
 import JSZip from 'jszip';
@@ -42,98 +42,126 @@ const DocumentImages = () => {
   // Загрузка данных документа и изображений
   useEffect(() => {
     const abortController = new AbortController();
-    
-    const fetchDocumentData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Загрузка метаданных документа
-        const docResponse = await fetch(
-          `http://localhost:5120/api/Document/${documentId}`, 
-          {
-            headers: {
-              'Authorization': `Bearer ${user.token}`
-            },
-            signal: abortController.signal
-          }
-        );
-
-        if (!docResponse.ok) throw new Error('Ошибка загрузки документа');
-        const docData = await docResponse.json();
-        setDocument(docData);
-
-        // Загрузка ZIP-архива
-        const zipResponse = await fetch(
-          `http://localhost:5120/api/Document/images/${documentId}`, 
-          {
-            headers: {
-              'Authorization': `Bearer ${user.token}`
-            },
-            signal: abortController.signal
-          }
-        );
-
-        if (!zipResponse.ok) throw new Error('Ошибка загрузки изображений');
-        
-        // Обработка ZIP-архива
-        setProcessing(true);
-        const zipData = await zipResponse.blob();
-        const zip = await JSZip.loadAsync(zipData);
-        
-        const files = Object.values(zip.files).filter(file => !file.dir);
-
-        const MAX_PARALLEL = 4;
-        const chunks = [];
-        for (let i = 0; i < files.length; i += MAX_PARALLEL) {
-          chunks.push(files.slice(i, i + MAX_PARALLEL));
-        }
-
-        const imagesArray = [];
-        let processed = 0;
-        
-        for (const chunk of chunks) {
-          await Promise.all(chunk.map(async (zipEntry) => {
-            try {
-              const fileData = await zipEntry.async('blob');
-              const url = URL.createObjectURL(fileData);
-              
-              imagesArray.push({
-                id: zipEntry.name,
-                name: zipEntry.name.split('/').pop(),
-                url: url,
-                size: zipEntry._data.uncompressedSize
-              });
-
-              processed++;
-              setProgress(Math.round((processed / files.length) * 100));
-            } catch (e) {
-              console.error(`Ошибка обработки файла ${zipEntry.name}:`, e);
-            }
-          }));
-        }
-
-        setImages(imagesArray.sort((a, b) => a.name.localeCompare(b.name)));
-        setProcessing(false);
-
-      } catch (err) {
-        if (abortController.signal.aborted) return;
-        setError(err.message);
-        setProcessing(false);
-      } finally {
-        if (!abortController.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchDocumentData();
+    fetchDocumentData(abortController);
     return () => abortController.abort();
   }, [documentId, user.token]);
 
-  const handleGenerateDocument = () => {
-    navigate(`/documents/${documentId}/generate`, { });
+  const fetchDocumentData = async (abortController) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Загрузка метаданных документа
+      const docResponse = await fetch(
+        `http://localhost:5120/api/Document/${documentId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${user.token}`
+          },
+          signal: abortController.signal
+        }
+      );
+
+      if (!docResponse.ok) throw new Error('Ошибка загрузки документа');
+      const docData = await docResponse.json();
+      setDocument(docData);
+
+      // Загрузка ZIP-архива
+      const zipResponse = await fetch(
+        `http://localhost:5120/api/Document/images/${documentId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${user.token}`
+          },
+          signal: abortController.signal
+        }
+      );
+
+      if (!zipResponse.ok) throw new Error('Ошибка загрузки изображений');
+
+      // Обработка ZIP-архива
+      setProcessing(true);
+      const zipData = await zipResponse.blob();
+      const zip = await JSZip.loadAsync(zipData);
+
+      const files = Object.values(zip.files).filter(file => !file.dir);
+
+      const MAX_PARALLEL = 4;
+      const chunks = [];
+      for (let i = 0; i < files.length; i += MAX_PARALLEL) {
+        chunks.push(files.slice(i, i + MAX_PARALLEL));
+      }
+
+      const imagesArray = [];
+      let processed = 0;
+
+      for (const chunk of chunks) {
+        await Promise.all(chunk.map(async (zipEntry) => {
+          try {
+            const fileData = await zipEntry.async('blob');
+            const url = URL.createObjectURL(fileData);
+
+            imagesArray.push({
+              id: zipEntry.name,
+              name: zipEntry.name.split('/').pop(),
+              url: url,
+              size: zipEntry._data.uncompressedSize
+            });
+
+            processed++;
+            setProgress(Math.round((processed / files.length) * 100));
+          } catch (e) {
+            console.error(`Ошибка обработки файла ${zipEntry.name}:`, e);
+          }
+        }));
+      }
+
+      setImages(imagesArray.sort((a, b) => a.name.localeCompare(b.name)));
+      setProcessing(false);
+
+    } catch (err) {
+      if (abortController.signal.aborted) return;
+      setError(err.message);
+      setProcessing(false);
+    } finally {
+      if (!abortController.signal.aborted) {
+        setLoading(false);
+      }
+    }
   };
+
+  const handleGenerateDocument = () => {
+    navigate(`/documents/${documentId}/generate`, {});
+  };
+
+  const handleDeleteImage = async (image) => {
+    try {
+      console.log(document);
+      console.log(image);
+      const response = await fetch(
+        `http://localhost:5120/api/Document/${documentId}/${document.imageFiles.find(img => img.name === image.name)?.id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${user.token}`
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Ошибка удаления изображения');
+      }
+
+
+      message.success('Изображение успешно удалено');
+    } catch (error) {
+      message.error(error.message);
+    } finally{
+      const abortController = new AbortController();
+      fetchDocumentData(abortController);
+    }
+  }
 
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
@@ -186,8 +214,8 @@ const DocumentImages = () => {
   // Обновленная кнопка добавления
   const AddImageButton = () => (
     <>
-      <Button 
-        type="primary" 
+      <Button
+        type="primary"
         icon={<PlusOutlined />}
         onClick={() => fileInputRef.current.click()}
         loading={uploading}
@@ -212,8 +240,8 @@ const DocumentImages = () => {
           <CloseCircleOutlined style={{ fontSize: 48, color: '#ff4d4f' }} />
           <Title level={4} style={{ marginTop: 16 }}>Произошла ошибка</Title>
           <Text type="danger">{error}</Text>
-          <Button 
-            type="primary" 
+          <Button
+            type="primary"
             style={{ marginTop: 24 }}
             onClick={() => navigate(-1)}
           >
@@ -234,9 +262,9 @@ const DocumentImages = () => {
       <DocumentHeader>
         <Title level={3}>{document.name}</Title>
         <Space>
-        <AddImageButton />
-          <Button 
-            type="default" 
+          <AddImageButton />
+          <Button
+            type="default"
             icon={<FileAddOutlined />}
             onClick={handleGenerateDocument}
             disabled={processing}
@@ -290,14 +318,21 @@ const DocumentImages = () => {
                   />
                 }
               >
-                <Card.Meta 
-                  title={image.name} 
+                <Card.Meta
+                  title={image.name}
                   description={
                     <>
                       <div>Размер: {(image.size / 1024).toFixed(2)} KB</div>
                     </>
                   }
                 />
+                <Button
+                  type="default"
+                  icon={<DeleteFilled />}
+                  onClick={() => handleDeleteImage(image)}
+                >
+                  Удалить
+                </Button>
               </ImageCard>
             </Col>
           ))}

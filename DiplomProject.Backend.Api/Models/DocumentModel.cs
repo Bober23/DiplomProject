@@ -52,6 +52,23 @@ namespace DiplomProject.Backend.Api.Models
             return new ModelResponse<Document> { Value = document, HttpStatus = 200, Message = "OK" };
         }
 
+        public async Task<ModelResponse<Document>> DeleteDocumentImage(int id, int imageId)
+        {
+            var document = _dbContext.Documents.FirstOrDefault(x => x.id == id);
+            if (document == null)
+            {
+                return new ModelResponse<Document> { Value = null, HttpStatus = 400, Message = "Document not found" };
+            }
+            var documentImage = document.ImageFiles.FirstOrDefault(x => x.Id == imageId);
+            if (documentImage == null)
+            {
+                return new ModelResponse<Document> { Value = null, HttpStatus = 400, Message = "Document image not found" };
+            }
+            _dbContext.ImageFiles.Remove(documentImage);
+            await _dbContext.SaveChangesAsync();
+            return new ModelResponse<Document> { Value = document, HttpStatus = 200, Message = "OK" };
+        }
+
         public async Task<ModelResponse<Document>> GetDocumentById(int id)
         {
             var document = _dbContext.Documents.FirstOrDefault(x => x.id == id);
@@ -96,6 +113,18 @@ namespace DiplomProject.Backend.Api.Models
             return new ModelResponse<Document> { Value = document, HttpStatus = 200, Message = "OK" };
         }
 
-        
+        public async Task<ModelResponse<Document>> UpdateDocumentLink(int id, string link)
+        {
+            var document = _dbContext.Documents.FirstOrDefault(x => x.id == id);
+            if (document == null)
+            {
+                return new ModelResponse<Document> { Value = null, HttpStatus = 400, Message = "Document not found" };
+            }
+            document.ContentLink = link;
+            await _dbContext.SaveChangesAsync();
+            return new ModelResponse<Document> { Value = document, HttpStatus = 200, Message = "OK" };
+        }
+
+
     }
 }

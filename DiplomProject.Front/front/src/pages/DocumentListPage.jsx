@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../components/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { Table, Button, Space, Spin, message, Tag, Modal, Form, Input , Select } from 'antd';
-import { 
-  PlusOutlined, 
-  EditOutlined, 
-  DownloadOutlined, 
+import { Table, Button, Space, Spin, message, Tag, Modal, Form, Input, Select } from 'antd';
+import {
+  PlusOutlined,
+  EditOutlined,
+  DownloadOutlined,
   DeleteOutlined,
   FileAddOutlined,
   SaveOutlined
@@ -47,7 +47,7 @@ const DocumentListPage = () => {
   }, [user.id, user.token]);
 
   const handleEdit = (documentId) => {
-    setEditingDocument(documents.find(document=>document.id === documentId));
+    setEditingDocument(documents.find(document => document.id === documentId));
     console.log(documentId);
     form.setFieldsValue({
       name: document.name,
@@ -56,13 +56,49 @@ const DocumentListPage = () => {
     setIsModalVisible(true);
   };
 
-  const handleDownload = (documentId, contentLink) => {
-    if (contentLink) {
-      // Реальная логика скачивания
-      window.open(contentLink, '_blank');
-      message.success('Начато скачивание документа');
-    } else {
-      message.warning('Документ недоступен для скачивания');
+  const handleDownload = async (documentId) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`http://localhost:5120/api/Document/docfile/${documentId}`, {
+        headers: {
+          'Authorization': `Bearer ${user.token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Ошибка при получении файла');
+      }
+
+      // Получаем имя файла из заголовков или генерируем
+      const contentDisposition = response.headers.get('content-disposition');
+
+      let filename = documents.find(document => document.id === documentId).name;
+      // Получаем blob из ответа
+      const blob = await response.blob();
+
+      // Создаем ссылку для скачивания
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      if (documents.find(document => document.id === documentId).extension === "DOCX") {
+        a.download = filename + ".docx";
+      }
+      else {
+        a.download = filename;
+      }
+
+      document.body.appendChild(a);
+      a.click();
+
+      // Очищаем
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      message.success('Скачивание начато');
+    } catch (error) {
+      message.error(error.message || 'Не удалось скачать файл');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -70,7 +106,7 @@ const DocumentListPage = () => {
     try {
       const values = await form.validateFields();
       setLoading(true);
-      
+
       const response = await fetch(`http://localhost:5120/api/Document`, {
         method: 'POST',
         headers: {
@@ -109,11 +145,15 @@ const DocumentListPage = () => {
     navigate(`/documents/${editingDocument.id}/images`);
   };
 
+  const handleAddImageDocument = async (id) => {
+    navigate(`/documents/${id}/images`);
+  };
+
   const handleSaveChanges = async () => {
     try {
       const values = await form.validateFields();
       setLoading(true);
-      
+
       const response = await fetch(`http://localhost:5120/api/Document/namecat/${editingDocument.id}`, {
         method: 'PATCH',
         headers: {
@@ -131,9 +171,9 @@ const DocumentListPage = () => {
       }
 
       // Обновляем локальное состояние
-      setDocuments(documents.map(doc => 
-        doc.id === editingDocument.id 
-          ? { ...doc, name: values.name, category: values.category } 
+      setDocuments(documents.map(doc =>
+        doc.id === editingDocument.id
+          ? { ...doc, name: values.name, category: values.category }
           : doc
       ));
 
@@ -202,16 +242,15 @@ const DocumentListPage = () => {
           {record.contentLink && (
             <Button
               icon={<DownloadOutlined />}
-              onClick={() => handleDownload(record.id, record.contentLink)}
+              onClick={() => handleDownload(record.id)}
             />
           )}
-          {record.imageFiles!=null && record.imageFiles.length > 0 && (
-            <Button
-              icon={<FileAddOutlined />}
-              type="primary"
-              onClick={() => handleCreateDocument(record.id)}
-            />
-          )}
+
+          <Button
+            icon={<FileAddOutlined />}
+            type="primary"
+            onClick={() => handleAddImageDocument(record.id)}
+          />
 
           <Button
             icon={<DeleteOutlined />}
@@ -241,7 +280,7 @@ const DocumentListPage = () => {
           <Button key="cancel" onClick={() => setIsCreateModalVisible(false)}>
             Отмена
           </Button>,
-          <Button 
+          <Button
             key="create"
             type="primary"
             icon={<SaveOutlined />}
@@ -300,9 +339,9 @@ const DocumentListPage = () => {
           <Button key="cancel" onClick={() => setIsModalVisible(false)}>
             Отмена
           </Button>,
-          <Button 
-            key="save" 
-            type="primary" 
+          <Button
+            key="save"
+            type="primary"
             icon={<SaveOutlined />}
             loading={loading}
             onClick={handleSaveChanges}
@@ -317,7 +356,7 @@ const DocumentListPage = () => {
             label="Название документа"
             rules={[{ required: true, message: 'Введите название' }]}
           >
-            <Input value={editingDocument?.name}/>
+            <Input value={editingDocument?.name} />
           </Form.Item>
 
           <Form.Item
@@ -325,16 +364,16 @@ const DocumentListPage = () => {
             label="Категория"
             rules={[{ required: false, message: 'Введите категорию' }]}
           >
-            <Input value={editingDocument?.category}/>
+            <Input value={editingDocument?.category} />
           </Form.Item>
         </Form>
-        <Button 
-            type="primary" 
-            loading={loading}
-            onClick={handleOpenImages}
-          >
-            Редактировать изображения документа
-          </Button>
+        <Button
+          type="primary"
+          loading={loading}
+          onClick={handleOpenImages}
+        >
+          Редактировать изображения документа
+        </Button>
       </Modal>
     </div>
   );

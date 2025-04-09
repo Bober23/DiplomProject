@@ -1,6 +1,7 @@
 ﻿using DiplomProject.Backend.Api.Models;
 using DiplomProject.Backend.Api.Requests;
 using DiplomProject.DTOLibrary;
+using iText.Layout.Element;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -69,8 +70,20 @@ namespace DiplomProject.Backend.Api.Controllers
             return BadRequest(response.Message);
         }
 
+        [HttpDelete("{id:int}/{idImage:int}")]
+        public async Task<IActionResult> DeleteDocumentImage(int id, int idImage)
+        {
+            var response = await _model.DeleteDocumentImage(id, idImage);
+            if (response.HttpStatus == 200)
+            {
+                return Ok(response.Value);
+            }
+            return BadRequest(response.Message);
+        }
+
+
         [HttpPatch("namecat/{id:int}")]
-        public async Task<IActionResult> UpdateDocumentName(int id, [FromBody]DocumentRenameRequest request)
+        public async Task<IActionResult> UpdateDocumentName(int id, [FromBody] DocumentRenameRequest request)
         {
             var response = await _model.UpdateDocumentName(id, request.Name);
             var response2 = await _model.UpdateDocumentCategory(id, request.Category);
@@ -110,7 +123,11 @@ namespace DiplomProject.Backend.Api.Controllers
             // Создаем StreamContent для файла
             var fileContent = new StreamContent(fileStream);
             fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(file.ContentType);
-
+            string fileName = file.FileName;
+            if (parentDocument.ImageFiles.FirstOrDefault(x=>x.Name == fileName) != null)
+            {
+                fileName = fileName + DateTime.Now;
+            }
             // Добавляем файл в форму
             formData.Add(fileContent, "file", file.FileName);
 
@@ -166,6 +183,34 @@ namespace DiplomProject.Backend.Api.Controllers
             return File(archiveStream.ToArray(), "application/zip", "images.zip");
         }
 
+        [HttpGet("docfile/{id:int}")]
+        public async Task<IActionResult> GetDocumentFile(int id)
+        {
+            var parentDocumentResponse = await _model.GetDocumentById(id);
+            if (parentDocumentResponse.HttpStatus != 200 || parentDocumentResponse.Value == null)
+            {
+                return BadRequest($"Error {parentDocumentResponse.HttpStatus} occurs while search parent document: {parentDocumentResponse.Message}");
+            }
+            var parentDocument = parentDocumentResponse.Value;
+            if (parentDocument == null || parentDocument.ContentLink == null || parentDocument.ContentLink.Length == 0)
+            {
+                return NotFound();
+            }
+            var response = await _http.GetAsync($"http://localhost:5109/Document/doc?link={parentDocument.ContentLink}");
+            if (!response.IsSuccessStatusCode)
+            {
+                return BadRequest("Cannot Load Doc");
+            }
+            byte[] fileBytes;
+            using (var responseStream = await response.Content.ReadAsStreamAsync())
+            {
+                var ms = new MemoryStream();
+                responseStream.CopyTo(ms);
+                fileBytes = ms.ToArray();
+                return File(fileBytes, $"application/{parentDocument.Extension.ToLower()}");
+            }
+        }
+
         [HttpPost("generate/{id:int}")]
         public async Task<IActionResult> GenerateDoc(int id)
         {
@@ -185,6 +230,13 @@ namespace DiplomProject.Backend.Api.Controllers
                 var selectionsJson = form["selections"];
                 if (string.IsNullOrEmpty(selectionsJson))
                     return BadRequest("Selections data is required");
+
+                var parentDocumentResponse = await _model.GetDocumentById(id);
+                if (parentDocumentResponse.HttpStatus != 200 || parentDocumentResponse.Value == null)
+                {
+                    return BadRequest($"Error {parentDocumentResponse.HttpStatus} occurs while search parent document: {parentDocumentResponse.Message}");
+                }
+                var parentDocument = parentDocumentResponse.Value;
 
                 // Десериализация выделений
                 var selections = JsonConvert.DeserializeObject<List<ImageSelection>>(selectionsJson);
@@ -213,6 +265,67 @@ namespace DiplomProject.Backend.Api.Controllers
                     
                 }
                 Console.WriteLine(imagesFile.ToString());
+                var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                Directory.CreateDirectory(tempFolder);
+
+                try
+                {
+                    // Сохраняем и распаковываем архив
+                    var archivePath = Path.Combine(tempFolder, "images.zip");
+                    using (var stream = System.IO.File.Create(archivePath))
+                    {
+                        await imagesFile.CopyToAsync(stream);
+                    }
+
+                    ZipFile.ExtractToDirectory(archivePath, tempFolder);
+
+                    // Получаем список изображений
+                    var imageFiles = Directory.GetFiles(tempFolder)
+                        .Where(f => !f.EndsWith(".zip"))
+                        .OrderBy(f => f)
+                        .ToList();
+
+                    var docMarkup = new List<DocMarkup>();
+                    // Обрабатываем каждое изображение
+                    for (int i = 0; i < imageFiles.Count; i++)
+                    {
+                        var imagePath = imageFiles[i];
+                        var imageSelections = selections?
+                            .Where(s => s.Id == i)
+                            .ToList();
+
+                        var processResult = await ProcessImageAsync(imagePath, i, imageSelections);
+                        if (processResult == null)
+                        {
+                            throw new Exception("Image split failure");
+                        }
+                        
+                        for (int j = 0; j < processResult.Segments.Count; j++) 
+                        {
+                            docMarkup.Add(new DocMarkup() { Type = MarkupType.Image, Content = processResult.Segments[j] });
+                            if (processResult.CroppedRegions.Count > j)
+                            {
+                                docMarkup.Add(new DocMarkup() { Content = processResult.CroppedRegions[j], Type = MarkupType.Image });
+                            }
+                        }
+                    }
+                    var response = await _http.PostAsJsonAsync<List<DocMarkup>>($"http://localhost:5109/Document/{parentDocument.Extension.ToLower()}?fileDirectory={parentDocument.User.Id}/{parentDocument.id}&fileName={parentDocument.Name}", docMarkup);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        string link = await response.Content.ReadAsStringAsync();
+                        await _model.UpdateDocumentLink(parentDocument.id, link);
+                    }
+                    else
+                    {
+                        throw new Exception("Document generate failure");
+                    }
+                }
+                finally
+                {
+                    // Удаляем временные файлы
+                    Directory.Delete(tempFolder, true);
+                }
+
                 return Ok();
             }
             catch (Exception ex)
@@ -220,6 +333,41 @@ namespace DiplomProject.Backend.Api.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
             
+        }
+
+        private async Task<ProcessingResultResponse> ProcessImageAsync(
+            string imagePath,
+            int imageIndex,
+            List<ImageSelection> selections)
+        {
+            try
+            {
+                using var content = new MultipartFormDataContent();
+
+                // Добавляем изображение
+                var imageContent = new ByteArrayContent(await System.IO.File.ReadAllBytesAsync(imagePath));
+                imageContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/png");
+                content.Add(imageContent, "image", $"image_{imageIndex}.png");
+
+                // Добавляем селекты
+                if (selections?.Any() == true)
+                {
+                    var selectionsJson = JsonConvert.SerializeObject(selections);
+                    content.Add(new StringContent(selectionsJson), "selections");
+                }
+
+                // Отправляем запрос
+                var response = await _http.PostAsync("http://localhost:5127/Image/split", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    return await response.Content.ReadFromJsonAsync<ProcessingResultResponse>();
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
         }
     }
 }

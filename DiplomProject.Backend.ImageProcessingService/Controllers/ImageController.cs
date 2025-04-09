@@ -1,8 +1,14 @@
 ﻿using Amazon.S3;
 using Amazon.S3.Model;
 using DiplomProject.Backend.ImageProcessingService.Model;
+using DiplomProject.DTOLibrary;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.PixelFormats;
+using System.Diagnostics;
 
 namespace DiplomProject.Backend.ImageProcessingService.Controllers
 {
@@ -47,6 +53,78 @@ namespace DiplomProject.Backend.ImageProcessingService.Controllers
             return File(stream, $"image/{linkToFile.Substring(linkToFile.LastIndexOf('.') + 1)}");
         }
 
-        
+        [HttpPost("split/")]
+        public async Task<IActionResult> SplitImagesBySelection()
+        {
+            try
+            {
+                if (!Request.HasFormContentType)
+                    return BadRequest("Expected multipart/form-data");
+
+                var form = await Request.ReadFormAsync();
+
+                // Получаем изображение
+                var imageFile = form.Files["image"];
+                if (imageFile == null || imageFile.Length == 0)
+                    return BadRequest("Image file is required");
+
+                // Получаем селекты
+                var selectionsJson = form["selections"];
+                var selections = selectionsJson.Count > 0
+                    ? JsonConvert.DeserializeObject<List<ImageSelection>>(selectionsJson[0])
+                    : null;
+
+                using var memoryStream = new MemoryStream();
+                await imageFile.CopyToAsync(memoryStream);
+                var result = _imageProcessor.SplitImage(memoryStream, selections);
+                // Конвертация результатов
+                var response = new ProcessingResultResponse
+                {
+                    Segments = ConvertImagesToByteArrays(result.SplitSegments),
+                    CroppedRegions = ConvertImagesToByteArrays(result.CroppedRegions)
+                };
+
+                // Очистка ресурсов
+                if (result.ModifiedImage != null)
+                {
+                    result.ModifiedImage.Dispose();
+                }
+                if (result.CroppedRegions != null)
+                {
+                    result.CroppedRegions.ForEach(i => i.Dispose());
+                }
+                if (result.SplitSegments != null)
+                {
+                    result.SplitSegments.ForEach(i => i.Dispose());
+                }
+                
+                
+
+                return Ok(response);
+            }
+            catch (JsonException ex)
+            {
+                return BadRequest($"Invalid selections format: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        private List<byte[]> ConvertImagesToByteArrays(List<Image<Rgba32>> images)
+        {
+            var result = new List<byte[]>();
+            var encoder = new PngEncoder();
+
+            foreach (var image in images)
+            {
+                using var ms = new MemoryStream();
+                image.Save(ms, encoder);
+                result.Add(ms.ToArray());
+            }
+
+            return result;
+        }
     }
 }
