@@ -5,10 +5,13 @@ using iText.Layout.Element;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
+using System;
 using System.Drawing;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.NetworkInformation;
+using System.Text;
 using System.Xml.Linq;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -302,7 +305,34 @@ namespace DiplomProject.Backend.Api.Controllers
                         
                         for (int j = 0; j < processResult.Segments.Count; j++) 
                         {
-                            docMarkup.Add(new DocMarkup() { Type = MarkupType.Image, Content = processResult.Segments[j] });
+                            string text = "";
+                            try
+                            {
+
+                                byte[] imageBytes = processResult.Segments[j];
+
+                                // Создаем контент из байтов
+                                var imageContent = new ByteArrayContent(imageBytes);
+                                imageContent.Headers.ContentType =
+                                    System.Net.Http.Headers.MediaTypeHeaderValue.Parse("image/png");
+
+                                // Отправка запроса
+                                var textResponse = await _http.PostAsync(
+                                    "http://localhost:8000/recognize-text/",
+                                    imageContent
+                                );
+
+                                // Читаем результат
+                                text = await textResponse.Content.ReadAsStringAsync();
+
+
+                                
+                            }
+                            catch (Exception ex)
+                            {
+                                BadRequest(ex);
+                            }
+                            docMarkup.Add(new DocMarkup() { Type = MarkupType.Text, Content = text });
                             if (processResult.CroppedRegions.Count > j)
                             {
                                 docMarkup.Add(new DocMarkup() { Content = processResult.CroppedRegions[j], Type = MarkupType.Image });

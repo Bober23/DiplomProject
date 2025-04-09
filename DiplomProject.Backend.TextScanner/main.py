@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, Body, HTTPException
 from easyocr import Reader
 from PIL import Image
 import io
@@ -10,7 +10,7 @@ app = FastAPI()
 logger = logging.getLogger("uvicorn")
 
 # Инициализация EasyOCR
-reader = Reader(['ru', 'en'], gpu=False)  # Для GPU измените на True
+reader = Reader(['ru', 'en'], gpu=True)  # Для GPU измените на True
 
 def preprocess_image(image: Image.Image) -> np.ndarray:
     """Предобработка изображения для EasyOCR"""
@@ -26,41 +26,22 @@ def preprocess_image(image: Image.Image) -> np.ndarray:
     return np.array(image)
 
 @app.post("/recognize-text/")
-async def recognize_text(files: List[UploadFile] = File(...)):
-    results = []
-    
-    for file in files:
-        try:
-            # Валидация файла
-            if not file.content_type.startswith("image/"):
-                raise HTTPException(400, "Invalid file type")
+async def recognize_text(file: bytes = Body(...)):  # Принимаем сырые байты
+        # Преобразование байтов в изображение
+    try:
+        # Преобразование байтов в изображение
+        image = Image.open(io.BytesIO(file))
+        img_array = preprocess_image(image)
 
-            # Чтение и обработка изображения
-            image_data = await file.read()
-            image = Image.open(io.BytesIO(image_data))
-            img_array = preprocess_image(image)
+        # Распознавание текста
+        result = reader.readtext(img_array, detail=0)
+        combined_text = " ".join(result)
             
-            # Распознавание текста
-            result = reader.readtext(img_array, detail=0)  # detail=0 возвращает только текст
-            combined_text = " ".join(result)
-            
-            results.append({
-                "filename": file.filename,
-                "text": combined_text,
-                "status": "success"
-            })
-            
-        except Exception as e:
-            logger.error(f"Error processing {file.filename}: {str(e)}")
-            results.append({
-                "filename": file.filename,
-                "text": "",
-                "status": "error",
-                "message": str(e)
-            })
+    except Exception as e:
+        logger.error(f"Error processing {image.filename}: {str(e)}")
     
-    return {"results": results}
+    return combined_text
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)

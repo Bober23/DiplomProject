@@ -181,24 +181,27 @@ const GenerateDocPage = () => {
   // Отмена действия
   const undo = () => {
     if (historyPosition.current < 0) return;
+  
+    // Получаем записи истории ПЕРЕД использованием
+    const currentEntry = history.current[historyPosition.current];
+    const prevEntry = history.current[historyPosition.current - 1];
+  
+    if (!prevEntry) return;
+  
+    // Обновляем selections
     const newSelections = [...selectionsRef.current];
     newSelections[prevEntry.index] = prevEntry.selections;
     setSelections(newSelections);
-
-    const currentEntry = history.current[historyPosition.current];
-    const prevEntry = history.current[historyPosition.current - 1];
-
+  
     // Восстанавливаем предыдущее состояние
-    if (prevEntry) {
-      const buffer = buffersRef.current[prevEntry.index];
-      const canvas = canvasRefs.current[prevEntry.index];
-
-      if (buffer && canvas) {
-        buffer.main.getContext('2d').drawImage(prevEntry.state, 0, 0);
-        canvas.getContext('2d').drawImage(prevEntry.state, 0, 0);
-      }
+    const buffer = buffersRef.current[prevEntry.index];
+    const canvas = canvasRefs.current[prevEntry.index];
+  
+    if (buffer && canvas) {
+      buffer.main.getContext('2d').drawImage(prevEntry.state, 0, 0);
+      canvas.getContext('2d').drawImage(prevEntry.state, 0, 0);
     }
-
+  
     historyPosition.current--;
   };
 
