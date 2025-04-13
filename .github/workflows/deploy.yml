@@ -25,7 +25,10 @@ jobs:
       with:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         known_hosts: ${{ secrets.KNOWN_HOSTS }}
-
+        config: |
+          Host *
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
     - name: Copy files to server
       uses: appleboy/scp-action@master
       with:
