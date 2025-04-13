@@ -1,0 +1,39 @@
+.generate-doc-page {
+    padding: 20px;
+  }
+  
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px;
+  }
+  
+  .images-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  
+  .image-wrapper {
+    width: 90%;
+    margin: 0 auto;
+    position: relative;
+  }
+  
+  .image-canvas {
+    width: 100%;
+    height: auto;
+    border: 1px solid #ddd;
+    cursor: crosshair;
+    touch-action: none; /* Для мобильных устройств */
+    background: white; /* Белый фон вместо прозрачного */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); /* Видимая рамка */
+  }
+
+  .undo-redo-container {
+    display: flex;
+    gap: 5px;
+    margin-left: 20px;
+  }

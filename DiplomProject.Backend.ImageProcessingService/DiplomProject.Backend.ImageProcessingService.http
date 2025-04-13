@@ -1,0 +1,6 @@
+@DiplomProject.Backend.ImageProcessingService_HostAddress = http://localhost:5127
+
+GET {{DiplomProject.Backend.ImageProcessingService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
