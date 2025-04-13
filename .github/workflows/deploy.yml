@@ -36,7 +36,7 @@ jobs:
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         source: "./"
-        target:  "/diplom"
+        target:  "/var/www/myapp"
         strip_components: 1
 
     - name: Deploy on server
