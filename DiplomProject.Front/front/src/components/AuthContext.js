@@ -9,6 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const apiUrl = process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -20,7 +21,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await fetch('http://localhost:5120/api/User/login', {
+      const response = await fetch(`${apiUrl}/api/User/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

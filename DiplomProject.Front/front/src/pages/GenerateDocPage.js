@@ -21,6 +21,7 @@ const GenerateDocPage = () => {
   const imagesRef = useRef([]);
   const history = useRef([]);
   const historyPosition = useRef(-1);
+  const apiUrl = process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     selectionsRef.current = selections;
@@ -30,7 +31,7 @@ const GenerateDocPage = () => {
   useEffect(() => {
     const loadImages = async () => {
       try {
-        const response = await fetch(`http://localhost:5120/api/Document/images/${documentId}`);
+        const response = await fetch(`${apiUrl}/api/Document/images/${documentId}`);
         if (!response.ok) throw new Error('Ошибка загрузки архива');
 
         const zipData = await response.blob();
@@ -97,7 +98,7 @@ const GenerateDocPage = () => {
   
       // Отправка
       const response = await fetch(
-        `http://localhost:5120/api/Document/generate/${documentId}`,
+        `${apiUrl}/api/Document/generate/${documentId}`,
         { method: 'POST', body: formData }
       );
   

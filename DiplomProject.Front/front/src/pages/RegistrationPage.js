@@ -8,7 +8,7 @@ const RegistrationPage = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [form] = Form.useForm();
-
+  const apiUrl = process.env.REACT_APP_API_URL;
   const onFinish = async (values) => {
     if (values.password !== values.confirmPassword) {
       message.error('Пароли не совпадают');
@@ -17,7 +17,7 @@ const RegistrationPage = () => {
 
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5120/api/User/new', {
+      const response = await fetch(`${apiUrl}/api/User/new`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  service_api:
+    build:
+      context: .
+      dockerfile: DiplomProject.Backend.Api/Dockerfile
+    container_name: service_api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+    ports:
+      - "5120:80"
+    depends_on:
+      - service_image
+      - service_doc
+      - service_scanner
+    networks:
+      - appnet
+
+  service_image:
+    build:
+      context: .
+      dockerfile: DiplomProject.Backend.ImageProcessingService/Dockerfile
+    container_name: service_image
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - S3_Access_key=i7tLZg7cKz9SVRwTEKRVia
+      - S3_Secret_key=a27QiqQq64j93yKnTbeaeHqWMcCmxJ3WrUTvgLMfy9KZ
+    ports:
+      - "5127:80"
+    networks:
+      - appnet
+
+  service_doc:
+    build:
+      context: .
+      dockerfile: DiplomProject.Backend.DocumentProcessingService/Dockerfile
+    container_name: service_doc
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - S3_Access_key=i7tLZg7cKz9SVRwTEKRVia
+      - S3_Secret_key=a27QiqQq64j93yKnTbeaeHqWMcCmxJ3WrUTvgLMfy9KZ
+    ports:
+      - "5109:80"
+    networks:
+      - appnet
+
+  service_scanner:
+    build: ./DiplomProject.Backend.TextScanner
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./DiplomProject.Backend.TextScanner:/app  # Для hot-reload в разработке
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - appnet
+
+  client:
+    build:
+      context: ./DiplomProject.Front/front
+      dockerfile: Dockerfile
+    container_name: client
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "3000:80"
+    networks:
+      - appnet
+
+  debugger:
+    image: curlimages/curl
+    command: sh -c "sleep 10000"
+    networks:
+      - appnet
+
+networks:
+  appnet:
+    driver: bridge

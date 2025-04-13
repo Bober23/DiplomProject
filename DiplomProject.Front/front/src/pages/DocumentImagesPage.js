@@ -31,6 +31,7 @@ const DocumentImages = () => {
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
+  const apiUrl = process.env.REACT_APP_API_URL;
 
   // Очистка Blob URL при размонтировании
   useEffect(() => {
@@ -53,7 +54,7 @@ const DocumentImages = () => {
 
       // Загрузка метаданных документа
       const docResponse = await fetch(
-        `http://localhost:5120/api/Document/${documentId}`,
+        `${apiUrl}/api/Document/${documentId}`,
         {
           headers: {
             'Authorization': `Bearer ${user.token}`
@@ -68,7 +69,7 @@ const DocumentImages = () => {
 
       // Загрузка ZIP-архива
       const zipResponse = await fetch(
-        `http://localhost:5120/api/Document/images/${documentId}`,
+        `${apiUrl}/api/Document/images/${documentId}`,
         {
           headers: {
             'Authorization': `Bearer ${user.token}`
@@ -139,7 +140,7 @@ const DocumentImages = () => {
       console.log(document);
       console.log(image);
       const response = await fetch(
-        `http://localhost:5120/api/Document/${documentId}/${document.imageFiles.find(img => img.name === image.name)?.id}`,
+        `${apiUrl}/api/Document/${documentId}/${document.imageFiles.find(img => img.name === image.name)?.id}`,
         {
           method: 'DELETE',
           headers: {
@@ -178,7 +179,7 @@ const DocumentImages = () => {
       formData.append('file', file);
 
       const response = await fetch(
-        `http://localhost:5120/api/Document/image/${documentId}`,
+        `${apiUrl}/api/Document/image/${documentId}`,
         {
           method: 'PATCH',
           headers: {

@@ -2,8 +2,10 @@
 using DiplomProject.Backend.Api.Requests;
 using DiplomProject.DTOLibrary;
 using iText.Layout.Element;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using System;
 using System.Drawing;
@@ -23,12 +25,15 @@ namespace DiplomProject.Backend.Api.Controllers
     {
         private readonly IDocumentModel _model;
         private readonly HttpClient _http;
-        public DocumentController(IDocumentModel model, HttpClient client)
+        private readonly ServicesOptions _servicesOptions;
+        public DocumentController(IDocumentModel model, HttpClient client, IOptions<ServicesOptions> options)
         {
             _model = model;
             _http = client;
+            _servicesOptions = options.Value;
         }
 
+        [EnableCors("AllowAll")]
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetDocumentById(int id)
         {
@@ -40,6 +45,7 @@ namespace DiplomProject.Backend.Api.Controllers
             return BadRequest(response.Message);
         }
 
+        [EnableCors("AllowAll")]
         [HttpGet("user/{id:int}")]
         public async Task<IActionResult> GetDocumentByUserId(int id)
         {
@@ -51,6 +57,7 @@ namespace DiplomProject.Backend.Api.Controllers
             return BadRequest(response.Message);
         }
 
+        [EnableCors("AllowAll")]
         [HttpPost]
         public async Task<IActionResult> CreateNewDocument(DocumentParameterRequest request)
         {
@@ -62,6 +69,7 @@ namespace DiplomProject.Backend.Api.Controllers
             return BadRequest(response.Message);
         }
 
+        [EnableCors("AllowAll")]
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteDocument(int id)
         {
@@ -73,6 +81,7 @@ namespace DiplomProject.Backend.Api.Controllers
             return BadRequest(response.Message);
         }
 
+        [EnableCors("AllowAll")]
         [HttpDelete("{id:int}/{idImage:int}")]
         public async Task<IActionResult> DeleteDocumentImage(int id, int idImage)
         {
@@ -84,7 +93,7 @@ namespace DiplomProject.Backend.Api.Controllers
             return BadRequest(response.Message);
         }
 
-
+        [EnableCors("AllowAll")]
         [HttpPatch("namecat/{id:int}")]
         public async Task<IActionResult> UpdateDocumentName(int id, [FromBody] DocumentRenameRequest request)
         {
@@ -97,6 +106,7 @@ namespace DiplomProject.Backend.Api.Controllers
             return BadRequest(response.Message);
         }
 
+        [EnableCors("AllowAll")]
         [HttpPatch("{id:int}")]
         public async Task<IActionResult> UpdateDocumentCategory(int id, [FromQuery] string category)
         {
@@ -108,6 +118,7 @@ namespace DiplomProject.Backend.Api.Controllers
             return BadRequest(response.Message);
         }
 
+        [EnableCors("AllowAll")]
         [HttpPatch("image/{id:int}")]
         public async Task<IActionResult> AddImageToDocument(int id, IFormFile file)
         {
@@ -135,7 +146,7 @@ namespace DiplomProject.Backend.Api.Controllers
             formData.Add(fileContent, "file", file.FileName);
 
             // Отправляем POST-запрос
-            var response = await _http.PostAsync($"http://localhost:5127/Image?fileDirectory={parentDocument.User.Id}/{parentDocument.id}/images", formData);
+            var response = await _http.PostAsync($"{_servicesOptions.ImageService}/Image?fileDirectory={parentDocument.User.Id}/{parentDocument.id}/images", formData);
             if (!response.IsSuccessStatusCode)
             {
                 return BadRequest(response.Headers.ToString());
@@ -152,6 +163,7 @@ namespace DiplomProject.Backend.Api.Controllers
             return Ok(responseFromModel.Value);
         }
 
+        [EnableCors("AllowAll")]
         [HttpGet("images/{id:int}")]
         public async Task<IActionResult> GetDocumentImages(int id, [FromQuery] bool binarized)
         {
@@ -167,7 +179,9 @@ namespace DiplomProject.Backend.Api.Controllers
                 foreach (var image in parentDocument.ImageFiles)
                 {
                     HttpResponseMessage? response = new HttpResponseMessage();
-                    response = await _http.GetAsync($"http://localhost:5127/Image?linkToFile={image.LinkToFile}&binarized={binarized}");
+                    Console.WriteLine("ADDRESS" + $"{_servicesOptions.ImageService}/Image?linkToFile={image.LinkToFile}&binarized={binarized}");
+                    response = await _http.GetAsync($"{_servicesOptions.ImageService}/Image?linkToFile={image.LinkToFile}&binarized={binarized}");
+                    Console.WriteLine("RESULT = " + response.StatusCode);
                     if (!response.IsSuccessStatusCode)
                     {
                         return BadRequest("Cannot Load Images");
@@ -199,7 +213,7 @@ namespace DiplomProject.Backend.Api.Controllers
             {
                 return NotFound();
             }
-            var response = await _http.GetAsync($"http://localhost:5109/Document/doc?link={parentDocument.ContentLink}");
+            var response = await _http.GetAsync($"{_servicesOptions.DocumentService}/DocumentProcessing/doc?link={parentDocument.ContentLink}");
             if (!response.IsSuccessStatusCode)
             {
                 return BadRequest("Cannot Load Doc");
@@ -219,9 +233,9 @@ namespace DiplomProject.Backend.Api.Controllers
         {
             try
             {
+                Console.WriteLine("GENERATE!");
                 if (!Request.HasFormContentType)
                     return BadRequest("Expected form-data request");
-
                 var form = await Request.ReadFormAsync();
 
                 // Обработка архива с изображениями
@@ -317,11 +331,12 @@ namespace DiplomProject.Backend.Api.Controllers
                                     System.Net.Http.Headers.MediaTypeHeaderValue.Parse("image/png");
 
                                 // Отправка запроса
+                                Console.WriteLine("RESPONSE!!!" + Convert.ToBase64String(imageBytes));
                                 var textResponse = await _http.PostAsync(
                                     "http://localhost:8000/recognize-text/",
                                     imageContent
                                 );
-
+                                Console.WriteLine("Result!!!" + textResponse.StatusCode);
                                 // Читаем результат
                                 text = await textResponse.Content.ReadAsStringAsync();
 
@@ -339,7 +354,9 @@ namespace DiplomProject.Backend.Api.Controllers
                             }
                         }
                     }
-                    var response = await _http.PostAsJsonAsync<List<DocMarkup>>($"http://localhost:5109/Document/{parentDocument.Extension.ToLower()}?fileDirectory={parentDocument.User.Id}/{parentDocument.id}&fileName={parentDocument.Name}", docMarkup);
+                    Console.WriteLine("RE123");
+                    var response = await _http.PostAsJsonAsync<List<DocMarkup>>($"{_servicesOptions.DocumentService}/DocumentProcessing/{parentDocument.Extension.ToLower()}?fileDirectory={parentDocument.User.Id}/{parentDocument.id}&fileName={parentDocument.Name}", docMarkup);
+                    Console.WriteLine("Result!!!" + response.StatusCode);
                     if (response.IsSuccessStatusCode)
                     {
                         string link = await response.Content.ReadAsStringAsync();
@@ -387,7 +404,7 @@ namespace DiplomProject.Backend.Api.Controllers
                 }
 
                 // Отправляем запрос
-                var response = await _http.PostAsync("http://localhost:5127/Image/split", content);
+                var response = await _http.PostAsync($"{_servicesOptions.ImageService}/Image/split", content);
                 if (response.IsSuccessStatusCode)
                 {
                     return await response.Content.ReadFromJsonAsync<ProcessingResultResponse>();

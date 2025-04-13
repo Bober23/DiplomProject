@@ -20,11 +20,12 @@ const DocumentListPage = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [form] = Form.useForm();
+  const apiUrl = process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
-        const response = await fetch(`http://localhost:5120/api/Document/user/${user.id}`, {
+        const response = await fetch(`${apiUrl}/api/Document/user/${user.id}`, {
           headers: {
             'Authorization': `Bearer ${user.token}` // если используется JWT
           }
@@ -59,7 +60,7 @@ const DocumentListPage = () => {
   const handleDownload = async (documentId) => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:5120/api/Document/docfile/${documentId}`, {
+      const response = await fetch(`${apiUrl}/api/Document/docfile/${documentId}`, {
         headers: {
           'Authorization': `Bearer ${user.token}`
         }
@@ -107,7 +108,7 @@ const DocumentListPage = () => {
       const values = await form.validateFields();
       setLoading(true);
 
-      const response = await fetch(`http://localhost:5120/api/Document`, {
+      const response = await fetch(`${apiUrl}/api/Document`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -154,7 +155,7 @@ const DocumentListPage = () => {
       const values = await form.validateFields();
       setLoading(true);
 
-      const response = await fetch(`http://localhost:5120/api/Document/namecat/${editingDocument.id}`, {
+      const response = await fetch(`${apiUrl}/api/Document/namecat/${editingDocument.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -188,7 +189,7 @@ const DocumentListPage = () => {
 
   const handleDelete = async (documentId) => {
     try {
-      const response = await fetch(`http://localhost:5120/api/Document/${documentId}`, {
+      const response = await fetch(`${apiUrl}/api/Document/${documentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${user.token}`

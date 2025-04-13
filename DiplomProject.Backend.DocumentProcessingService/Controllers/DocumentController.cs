@@ -17,7 +17,7 @@ using Org.BouncyCastle.Asn1.IsisMtt.X509;
 
 namespace DiplomProject.Backend.DocumentProcessingService.Controllers
 {
-    [Route("[controller]")]
+    [Route("[controller]Processing")]
     [ApiController]
     public class DocumentController : ControllerBase
     {
@@ -32,8 +32,6 @@ namespace DiplomProject.Backend.DocumentProcessingService.Controllers
         {
             byte[] pdfBytes;
             string linkToFile;
-            string fontPath = "Fonts/TIMES.ttf";
-            PdfFont font = PdfFontFactory.CreateFont(fontPath, PdfEncodings.IDENTITY_H, PdfFontFactory.EmbeddingStrategy.PREFER_EMBEDDED);
             // Создание PDF-документа
             using (var outputStream = new MemoryStream())
             {
@@ -68,7 +66,6 @@ namespace DiplomProject.Backend.DocumentProcessingService.Controllers
                             {
                                 string text = item.Content.ToString();
                                 document.Add(new Paragraph(text)
-                                    .SetFont(font)
                                     .SetFontSize(14));
                             }
                         }
@@ -138,6 +135,7 @@ namespace DiplomProject.Backend.DocumentProcessingService.Controllers
         [HttpGet("doc")]
         public async Task<IActionResult> GetDocument([FromQuery]string link)
         {
+            Console.WriteLine("LOAD" + link);
             var doc = await _loader.GetFromS3Cloud(link);
             string extension = link.Substring(link.LastIndexOf('.') + 1).ToLower();
             if (doc == null)

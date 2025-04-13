@@ -2,6 +2,7 @@
 using Amazon.S3.Model;
 using DiplomProject.Backend.ImageProcessingService.Model;
 using DiplomProject.DTOLibrary;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,8 @@ namespace DiplomProject.Backend.ImageProcessingService.Controllers
         {
             _imageProcessor = imageProcessor;
         }
+
+        [EnableCors("AllowAll")]
         [HttpPost]
         public async Task<IActionResult> UploadImage(IFormFile file, [FromQuery] string fileDirectory)
         {
@@ -34,12 +37,14 @@ namespace DiplomProject.Backend.ImageProcessingService.Controllers
             return Ok(key);
         }
 
+        [EnableCors("AllowAll")]
         [HttpGet]
         public async Task<IActionResult> DownloadImage([FromQuery] string linkToFile, [FromQuery] bool binarized)
         {
             if (linkToFile == null || linkToFile == string.Empty)
                 return BadRequest("Empty link");
             // Обработка изображения (например, сжатие)
+            Console.WriteLine("LOAD"+linkToFile);
             var stream = await _imageProcessor.GetFromS3Cloud(linkToFile);
             if (stream == null || stream.Length == 0)
             {
@@ -53,6 +58,7 @@ namespace DiplomProject.Backend.ImageProcessingService.Controllers
             return File(stream, $"image/{linkToFile.Substring(linkToFile.LastIndexOf('.') + 1)}");
         }
 
+        [EnableCors("AllowAll")]
         [HttpPost("split/")]
         public async Task<IActionResult> SplitImagesBySelection()
         {
