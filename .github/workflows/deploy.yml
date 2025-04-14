@@ -9,7 +9,8 @@ jobs:
   build-and-push:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
-
+    env:
+      REACT_APP_API_URL: https://${{SSH_HOST}}:5120
     permissions:
       contents: read
       packages: write
