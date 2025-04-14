@@ -52,7 +52,10 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > "$HOME/.ssh/id_rsa"
           chmod 600 "$HOME/.ssh/id_rsa"
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> "$HOME/.ssh/known_hosts"
-
+          
+      - name: List files in current directory
+        run: ls -la
+        
       - name: Copy docker-compose.yml to the remote server
         run: scp -o StrictHostKeyChecking=no docker-compose.yml ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/home/diplom/docker-compose.yml
 
