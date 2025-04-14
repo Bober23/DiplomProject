@@ -20,23 +20,30 @@ jobs:
       run: |
         echo ${{ secrets.PAT }} | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
         
-    - name: Install yq (YAML processor)
-      run: sudo apt-get install -y yq
+    - name: Install yq
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-pip
+        pip3 install yq
         
     - name: Build and push all services
       run: |
-        # Получаем список всех сервисов из docker-compose.yml
-        SERVICES=$(yq eval '.services | keys | .[]' docker-compose.yml)
+        # Получаем список всех сервисов
+        SERVICES=$(yq -r '.services | keys | .[]' docker-compose.yml)
         
         for SERVICE in $SERVICES; do
           # Получаем контекст сборки (по умолчанию ".")
-          CONTEXT=$(yq eval ".services.$SERVICE.build.context // \".\"" docker-compose.yml)
+          CONTEXT=$(yq -r ".services.$SERVICE.build.context // \".\"" docker-compose.yml)
           
           # Получаем путь к Dockerfile (по умолчанию "Dockerfile")
-          DOCKERFILE=$(yq eval ".services.$SERVICE.build.dockerfile // \"Dockerfile\"" docker-compose.yml)
+          DOCKERFILE=$(yq -r ".services.$SERVICE.build.dockerfile // \"Dockerfile\"" docker-compose.yml)
           
-          # Полный путь к Dockerfile
-          FULL_DOCKERFILE="$CONTEXT/$DOCKERFILE"
+          # Формируем полный путь
+          if [ "$CONTEXT" = "." ]; then
+            FULL_DOCKERFILE="$DOCKERFILE"
+          else
+            FULL_DOCKERFILE="$CONTEXT/$DOCKERFILE"
+          fi
           
           echo "Building $SERVICE from $FULL_DOCKERFILE"
           
