@@ -47,7 +47,17 @@ services:
     networks:
       - appnet
 
-  
+  client:
+    build:
+      context: ./DiplomProject.Front/front
+      dockerfile: Dockerfile
+    container_name: client
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "3000:80"
+    networks:
+      - appnet
 
 networks:
   appnet:
