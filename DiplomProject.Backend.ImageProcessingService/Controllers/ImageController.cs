@@ -44,7 +44,6 @@ namespace DiplomProject.Backend.ImageProcessingService.Controllers
             if (linkToFile == null || linkToFile == string.Empty)
                 return BadRequest("Empty link");
             // Обработка изображения (например, сжатие)
-            Console.WriteLine("LOAD"+linkToFile);
             var stream = await _imageProcessor.GetFromS3Cloud(linkToFile);
             if (stream == null || stream.Length == 0)
             {

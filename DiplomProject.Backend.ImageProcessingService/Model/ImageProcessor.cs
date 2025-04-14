@@ -69,7 +69,6 @@ namespace DiplomProject.Backend.ImageProcessingService.Model
 
         public async Task<MemoryStream> GetFromS3Cloud(string fileLink)
         {
-            Console.WriteLine("TEST");
             var getRequest = new GetObjectRequest
             {
                 BucketName = BucketName,

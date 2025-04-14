@@ -179,9 +179,8 @@ namespace DiplomProject.Backend.Api.Controllers
                 foreach (var image in parentDocument.ImageFiles)
                 {
                     HttpResponseMessage? response = new HttpResponseMessage();
-                    Console.WriteLine("ADDRESS" + $"{_servicesOptions.ImageService}/Image?linkToFile={image.LinkToFile}&binarized={binarized}");
+                    
                     response = await _http.GetAsync($"{_servicesOptions.ImageService}/Image?linkToFile={image.LinkToFile}&binarized={binarized}");
-                    Console.WriteLine("RESULT = " + response.StatusCode);
                     if (!response.IsSuccessStatusCode)
                     {
                         return BadRequest("Cannot Load Images");
@@ -233,7 +232,6 @@ namespace DiplomProject.Backend.Api.Controllers
         {
             try
             {
-                Console.WriteLine("GENERATE!");
                 if (!Request.HasFormContentType)
                     return BadRequest("Expected form-data request");
                 var form = await Request.ReadFormAsync();
@@ -281,7 +279,6 @@ namespace DiplomProject.Backend.Api.Controllers
                     }
                     
                 }
-                Console.WriteLine(imagesFile.ToString());
                 var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
                 Directory.CreateDirectory(tempFolder);
 
@@ -331,12 +328,10 @@ namespace DiplomProject.Backend.Api.Controllers
                                     System.Net.Http.Headers.MediaTypeHeaderValue.Parse("image/png");
 
                                 // Отправка запроса
-                                Console.WriteLine("RESPONSE!!!" + Convert.ToBase64String(imageBytes));
                                 var textResponse = await _http.PostAsync(
                                     "http://localhost:8000/recognize-text/",
                                     imageContent
                                 );
-                                Console.WriteLine("Result!!!" + textResponse.StatusCode);
                                 // Читаем результат
                                 text = await textResponse.Content.ReadAsStringAsync();
 
@@ -354,9 +349,7 @@ namespace DiplomProject.Backend.Api.Controllers
                             }
                         }
                     }
-                    Console.WriteLine("RE123");
                     var response = await _http.PostAsJsonAsync<List<DocMarkup>>($"{_servicesOptions.DocumentService}/DocumentProcessing/{parentDocument.Extension.ToLower()}?fileDirectory={parentDocument.User.Id}/{parentDocument.id}&fileName={parentDocument.Name}", docMarkup);
-                    Console.WriteLine("Result!!!" + response.StatusCode);
                     if (response.IsSuccessStatusCode)
                     {
                         string link = await response.Content.ReadAsStringAsync();

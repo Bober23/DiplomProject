@@ -135,7 +135,6 @@ namespace DiplomProject.Backend.DocumentProcessingService.Controllers
         [HttpGet("doc")]
         public async Task<IActionResult> GetDocument([FromQuery]string link)
         {
-            Console.WriteLine("LOAD" + link);
             var doc = await _loader.GetFromS3Cloud(link);
             string extension = link.Substring(link.LastIndexOf('.') + 1).ToLower();
             if (doc == null)
