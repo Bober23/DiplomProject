@@ -1,7 +1,7 @@
-version: '3.8'
 
 services:
   service_api:
+    image: ghcr.io/bober23/diplomproject-api:latest
     build:
       context: .
       dockerfile: DiplomProject.Backend.Api/Dockerfile
@@ -14,11 +14,11 @@ services:
     depends_on:
       - service_image
       - service_doc
-      - service_scanner
     networks:
       - appnet
 
   service_image:
+    image: ghcr.io/bober23/diplomproject-image:latest
     build:
       context: .
       dockerfile: DiplomProject.Backend.ImageProcessingService/Dockerfile
@@ -34,6 +34,7 @@ services:
       - appnet
 
   service_doc:
+    image: ghcr.io/bober23/diplomproject-doc:latest
     build:
       context: .
       dockerfile: DiplomProject.Backend.DocumentProcessingService/Dockerfile
@@ -49,6 +50,7 @@ services:
       - appnet
 
   client:
+    image: ghcr.io/bober23/diplomproject-client:latest
     build:
       context: ./DiplomProject.Front/front
       dockerfile: Dockerfile
@@ -57,12 +59,6 @@ services:
       - NODE_ENV=production
     ports:
       - "3000:80"
-    networks:
-      - appnet
-
-  debugger:
-    image: curlimages/curl
-    command: sh -c "sleep 10000"
     networks:
       - appnet
 
