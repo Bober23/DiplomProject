@@ -60,7 +60,12 @@ jobs:
         - name: Deploy via SSH
           run: |
             ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-              cd /home/diplom
-              docker compose down
-              docker compose up -d --build
+              cd /home/ubuntu/diplom
+              if [ -f docker-compose.yml ]; then
+                docker compose down
+                docker compose up -d --build
+              else
+                echo "docker-compose.yml not found in /home/ubuntu/diplom"
+                exit 1
+              fi
             EOF
