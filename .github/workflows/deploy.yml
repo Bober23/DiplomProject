@@ -56,7 +56,12 @@ jobs:
         - name: Copy files to server
           run: |
             rsync -avz --delete ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/diplom
-
+        - name: Check files on server
+          run: |
+            ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+              echo "--- Files in /home/diplom ---"
+              find /home/diplom -name docker-compose.yml
+            EOF
         - name: Deploy via SSH
           run: |
             ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
