@@ -4,5 +4,6 @@
     {
         public string ImageService { get; set; }
         public string DocumentService { get; set; }
+        public string ScannerService { get; set; }
     }
 }

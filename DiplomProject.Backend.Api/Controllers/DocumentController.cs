@@ -329,7 +329,7 @@ namespace DiplomProject.Backend.Api.Controllers
 
                                 // Отправка запроса
                                 var textResponse = await _http.PostAsync(
-                                    "http://localhost:8000/recognize-text/",
+                                    $"http://{_servicesOptions.ScannerService}/recognize-text/",
                                     imageContent
                                 );
                                 // Читаем результат

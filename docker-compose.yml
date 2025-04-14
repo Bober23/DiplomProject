@@ -62,6 +62,17 @@ services:
     networks:
       - appnet
 
+  service_scanner:
+    build: ./DiplomProject.Backend.TextScanner
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./DiplomProject.Backend.TextScanner:/app  # Для hot-reload в разработке
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - appnet
+
 networks:
   appnet:
     driver: bridge
