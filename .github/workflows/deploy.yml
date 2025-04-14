@@ -46,12 +46,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install SSH keys
-        run: |
-          mkdir -p ~/.ssh || true
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} > ~/.ssh/known_hosts
+      - name: Setup SSH key
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Copy docker-compose file to server
         run: |
