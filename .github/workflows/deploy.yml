@@ -9,7 +9,6 @@ on:
     branches: [ "master" ]
 
 jobs:
-
     build:
         name: Build
         runs-on: ubuntu-latest
@@ -26,32 +25,49 @@ jobs:
 
     deploy:
         name: Deploy
+        needs: build
         runs-on: ubuntu-latest
 
         steps:
         - uses: actions/checkout@v4
-        - name: install ssh keys
-          # check this thread to understand why its needed:
-          # <https://stackoverflow.com/a/70447517>
+          with:
+            fetch-depth: 0  # Получаем всю историю коммитов
+            
+        - name: Install SSH keys
           run: |
             mkdir -p ~/.ssh
             echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
             chmod 600 ~/.ssh/id_rsa
             ssh-keyscan -H ${{ secrets.SSH_HOST }} > ~/.ssh/known_hosts
+            
         - name: Validate key
+          run: ssh -T -v ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} || true
+            
+        - name: Prepare deployment package
           run: |
-            ssh-keygen -l -f ~/.ssh/id_rsa
-            ssh -T -v ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
-        - name: create docker compose config
+            # Создаем архив со всем проектом
+            tar -czf deploy.tar.gz .
+            
+        - name: Transfer files to server
           run: |
-            cat docker-compose.yml | envsubst > docker-compose-secret.yml
-        - name: copy docker compose config
-          run: scp docker-compose-secret.yml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:docker-compose.yml
-        - name: connect and pull
-          run: ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "docker-compose pull && docker-compose up -d && exit"
-        - name: cleanup config
+            scp deploy.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy.tar.gz
+            ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+              mkdir -p ~/deploy &&
+              tar -xzf ~/deploy.tar.gz -C ~/deploy &&
+              rm ~/deploy.tar.gz
+            "
+            
+        - name: Deploy application
+          run: |
+            ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+              cd ~/deploy &&
+              docker-compose pull &&
+              docker-compose build --no-cache &&
+              docker-compose up -d
+            "
+            
+        - name: Cleanup
           if: always()
-          run: ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm docker-compose.yml"
-        - name: cleanup keys
-          if: always()
-          run: rm -rf ~/.ssh docker-compose-secret.yml
+          run: |
+            rm -rf ~/.ssh deploy.tar.gz
+            ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -f ~/deploy.tar.gz" || true
