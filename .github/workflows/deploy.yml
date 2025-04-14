@@ -53,12 +53,14 @@ jobs:
             chmod 600 ~/.ssh/id_rsa
             ssh-keyscan -H ${{ secrets.SSH_HOST }} > ~/.ssh/known_hosts
   
+        - name: Copy files to server
+          run: |
+            rsync -avz --delete ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/ubuntu/diplom
+
         - name: Deploy via SSH
           run: |
-            ssh ${{ secrets.DEPLOY_SERVER }} << 'EOF'
-              cd /home/diplom
-              git pull
-              docker compose pull
+            ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+              cd /home/ubuntu/diplom
               docker compose down
-              docker compose up -d
+              docker compose up -d --build
             EOF
