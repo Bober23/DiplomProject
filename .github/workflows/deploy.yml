@@ -32,10 +32,10 @@ jobs:
         SERVICES=$(yq -r '.services | keys | .[]' docker-compose.yml)
         
         for SERVICE in $SERVICES; do
-          # Получаем контекст сборки (по умолчанию ".")
+          # Получаем контекст сборки
           CONTEXT=$(yq -r ".services.$SERVICE.build.context // \".\"" docker-compose.yml)
           
-          # Получаем путь к Dockerfile (по умолчанию "Dockerfile")
+          # Получаем путь к Dockerfile
           DOCKERFILE=$(yq -r ".services.$SERVICE.build.dockerfile // \"Dockerfile\"" docker-compose.yml)
           
           # Формируем полный путь
@@ -47,12 +47,15 @@ jobs:
           
           echo "Building $SERVICE from $FULL_DOCKERFILE"
           
+          # Формируем имя образа в нижнем регистре
+          IMAGE_NAME=$(echo "$SERVICE" | tr '[:upper:]' '[:lower:]')
+          
           docker build \
             -f "$FULL_DOCKERFILE" \
-            -t "${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/$SERVICE:latest" \
+            -t "${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/$IMAGE_NAME:latest" \
             "$CONTEXT"
             
-          docker push "${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/$SERVICE:latest"
+          docker push "${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/$IMAGE_NAME:latest"
         done
 
   deploy:
