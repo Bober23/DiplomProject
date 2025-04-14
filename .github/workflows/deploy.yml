@@ -32,12 +32,10 @@ jobs:
         id: repo
         run: echo "REPO=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV  # lowercased
 
-      - name: List files in build context
+      - name: List build context files
         run: |
-          echo "Listing files in the root of the checkout:"
-          ls -la
-          echo "Listing files in fastapi folder:"
-          ls -la fastapi
+          echo "Listing files in ./DiplomProject.Backend.TextScanner:"
+          ls -la ./DiplomProject.Backend.TextScanner
 
       - name: Build and Push Images
         run: |
