@@ -33,47 +33,39 @@ jobs:
 
       - name: Build and Push Images
         run: |
-          docker build -t ghcr.io/${{ env.REPO }}/service_api:latest -f DiplomProject.Backend.Api/Dockerfile .
-          docker build -t ghcr.io/${{ env.REPO }}/service_image:latest -f DiplomProject.Backend.ImageProcessingService/Dockerfile .
-          docker build -t ghcr.io/${{ env.REPO }}/service_doc:latest -f DiplomProject.Backend.DocumentProcessingService/Dockerfile .
-          docker build -t ghcr.io/${{ env.REPO }}/client:latest -f DiplomProject.Front/front/Dockerfile ./DiplomProject.Front/front
+          docker build -t ghcr.io/bober23/diplomproject-api:latest -f DiplomProject.Backend.Api/Dockerfile .
+          docker build -t ghcr.io/bober23/diplomproject-image:latest -f DiplomProject.Backend.ImageProcessingService/Dockerfile .
+          docker build -t ghcr.io/bober23/diplomproject-doc:latest -f DiplomProject.Backend.DocumentProcessingService/Dockerfile .
+          docker build -t ghcr.io/bober23/diplomproject-/client:latest -f DiplomProject.Front/front/Dockerfile ./DiplomProject.Front/front
 
-          docker push ghcr.io/${{ env.REPO }}/service_api:latest
-          docker push ghcr.io/${{ env.REPO }}/service_image:latest
-          docker push ghcr.io/${{ env.REPO }}/service_doc:latest
-          docker push ghcr.io/${{ env.REPO }}/client:latest
+          docker push ghcr.io/bober23/diplomproject-api:latest
+          docker push ghcr.io/bober23/diplomproject-image:latest
+          docker push ghcr.io/bober23/diplomproject-doc:latest
+          docker push ghcr.io/bober23/diplomproject-/client:latest
   deploy:
-    name: Deploy to Server
-    needs: build-and-push
+    name: Deploy To Server
     runs-on: ubuntu-latest
 
     steps:
-
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-            
-      - name: Install SSH keys
-        run: |
-          mkdir -p "$HOME/.ssh"
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > "$HOME/.ssh/id_rsa"
-          chmod 600 "$HOME/.ssh/id_rsa"
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> "$HOME/.ssh/known_hosts"
-          
-      - name: List files in current directory
-        run: ls -la
-        
-      - name: Copy docker-compose.yml to the remote server
-        run: | 
-          scp -o StrictHostKeyChecking=no docker-compose.yml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/diplom/docker-compose.yml
 
-      - name: Deploy via SSH
-        # Используем опцию -T для отключения выделения псевдотерминала
-        run: |
-          ssh -T -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-            cd /home/diplom
-            # Загружаем образы с реестра и запускаем контейнеры
-            docker compose pull
-            docker compose up -d
-          EOF
+      - name: Upload docker-compose to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.yml"
+          target: "/home/diplom/"
+
+      - name: SSH into server and restart services
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            docker compose -f /home/diplom/docker-compose.yml pull
+            docker compose -f /home/diplom/docker-compose.yml down
+            docker compose -f /home/diplom/docker-compose.yml up -d
