@@ -52,8 +52,8 @@ jobs:
   
       - name: Prepare deployment files
         run: |
-          # Клонируем свежую копию репозитория
-          git clone https://github.com/${{ github.repository }}.git fresh_copy
+          # Клонируем репозиторий с аутентификацией
+          git clone https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git fresh_copy
           cd fresh_copy
           git checkout ${{ github.sha }}
           # Создаем архив
