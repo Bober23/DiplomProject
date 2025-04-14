@@ -64,7 +64,9 @@ services:
 
   service_scanner:
     image: ghcr.io/bober23/diplomproject-scanner:latest
-    build: ./DiplomProject.Backend.TextScanner
+    build:
+      context: ./DiplomProject.Backend.TextScanner
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     volumes:
