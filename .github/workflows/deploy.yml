@@ -1,5 +1,4 @@
 name: deploy
-
 on:
   pull_request:
     types:
