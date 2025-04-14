@@ -6,64 +6,32 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  IMAGE_PREFIX: bober23/diplomproject  # В нижнем регистре
 
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      packages: write  # Добавляем права на запись в packages
+
     steps:
     - uses: actions/checkout@v3
     
     - name: Login to GitHub Container Registry
       run: |
-        echo ${{ secrets.PAT }} | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+        echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
         
-    - name: Set up lower case variables
-      id: vars
+    - name: Build and push client
       run: |
-        OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-        REPO_LOWER=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
-        echo "owner_lower=$OWNER_LOWER" >> $GITHUB_OUTPUT
-        echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
+        docker build \
+          -f DiplomProject.Front/front/Dockerfile \
+          -t "${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/client:latest" \
+          DiplomProject.Front/front
         
-    - name: Install yq
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y python3-pip
-        pip3 install yq
-        
-    - name: Build and push all services
-      run: |
-        # Получаем список всех сервисов
-        SERVICES=$(yq -r '.services | keys | .[]' docker-compose.yml)
-        
-        for SERVICE in $SERVICES; do
-          # Получаем контекст сборки
-          CONTEXT=$(yq -r ".services.$SERVICE.build.context // \".\"" docker-compose.yml)
-          
-          # Получаем путь к Dockerfile
-          DOCKERFILE=$(yq -r ".services.$SERVICE.build.dockerfile // \"Dockerfile\"" docker-compose.yml)
-          
-          # Формируем полный путь
-          if [ "$CONTEXT" = "." ]; then
-            FULL_DOCKERFILE="$DOCKERFILE"
-          else
-            FULL_DOCKERFILE="$CONTEXT/$DOCKERFILE"
-          fi
-          
-          echo "Building $SERVICE from $FULL_DOCKERFILE"
-          
-          # Формируем имя образа в нижнем регистре
-          IMAGE_NAME=$(echo "$SERVICE" | tr '[:upper:]' '[:lower:]')
-          
-          docker build \
-            -f "$FULL_DOCKERFILE" \
-            -t "${{ env.REGISTRY }}/${{ steps.vars.outputs.owner_lower }}/${{ steps.vars.outputs.repo_lower }}/$IMAGE_NAME:latest" \
-            "$CONTEXT"
-            
-          docker push "${{ env.REGISTRY }}/${{ steps.vars.outputs.owner_lower }}/${{ steps.vars.outputs.repo_lower }}/$IMAGE_NAME:latest"
-        done
+        docker push "${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/client:latest"
 
   deploy:
     # ... (остальная часть workflow остается без изменений)
