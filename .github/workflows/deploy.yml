@@ -67,6 +67,7 @@ jobs:
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u bober23 --password-stdin
             docker compose -f /home/diplom/docker-compose.yml pull
             docker compose -f /home/diplom/docker-compose.yml down
             docker compose -f /home/diplom/docker-compose.yml up -d --pull always
