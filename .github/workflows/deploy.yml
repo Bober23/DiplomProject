@@ -57,7 +57,8 @@ jobs:
         run: ls -la
         
       - name: Copy docker-compose.yml to the remote server
-        run: scp -o StrictHostKeyChecking=no docker-compose.yml ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/home/diplom/docker-compose.yml
+        run: | 
+          scp -o StrictHostKeyChecking=no docker-compose.yml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/diplom/docker-compose.yml
 
       - name: Deploy via SSH
         # Используем опцию -T для отключения выделения псевдотерминала
