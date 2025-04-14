@@ -55,7 +55,7 @@ jobs:
   
         - name: Copy files to server
           run: |
-            rsync -avz --delete ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/ubuntu/diplom
+            rsync -avz --delete ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/diplom
 
         - name: Deploy via SSH
           run: |
