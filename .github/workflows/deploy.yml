@@ -47,34 +47,38 @@ jobs:
   
       steps:
 
+        # Шаг 1: Проверяем, что у нас есть доступ к серверу
         - name: Checkout repository
-          uses: actions/checkout@v3
-        
-        - name: Install SSH keys
-          run: |
-            mkdir -p ~/.ssh
-            echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-            chmod 600 ~/.ssh/id_rsa
-            ssh-keyscan -H ${{ secrets.SSH_HOST }} > ~/.ssh/known_hosts
+          uses: actions/checkout@v2
   
-        - name: Copy files to server
+        # Шаг 2: Получаем секреты для доступа к серверу
+        - name: Set up SSH key
+          uses: webfactory/ssh-agent@v0.5.3
+          with:
+            ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+  
+        # Шаг 3: Копируем файлы на сервер (если нужно обновить настройки)
+        - name: Copy files to the server (if necessary)
           run: |
-            rsync -avz --delete ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/diplom
-        - name: Check files on server
+            scp -r . root@${{ secrets.SSH_HOST }}:/home/diplom
+  
+        # Шаг 4: Вытягиваем образы из реестра
+        - name: Pull Docker images from GitHub Container Registry
           run: |
-            ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-              echo "--- Files in /home/diplom ---"
-              find /home/diplom -name docker-compose.yml
+            ssh root@${{ secrets.SSH_HOST }} << 'EOF'
+              docker-compose pull
             EOF
-        - name: Deploy via SSH
+  
+        # Шаг 5: Запускаем контейнеры
+        - name: Start Docker containers
           run: |
-            ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-              cd /home/diplom
-              if [ -f docker-compose.yml ]; then
-                docker compose down
-                docker compose up -d
-              else
-                echo "docker-compose.yml not found in /home/ubuntu/diplom"
-                exit 1
-              fi
+            ssh root@${{ secrets.SSH_HOST }} << 'EOF'
+              docker-compose up -d
+            EOF
+  
+        # Шаг 6: Проверка статуса контейнеров (по желанию)
+        - name: Check container status
+          run: |
+            ssh root@${{ secrets.SSH_HOST }} << 'EOF'
+              docker ps
             EOF
