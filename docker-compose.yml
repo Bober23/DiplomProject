@@ -63,6 +63,7 @@ services:
       - appnet
 
   service_scanner:
+    image: ghcr.io/bober23/diplomproject-scanner:latest
     build: ./DiplomProject.Backend.TextScanner
     ports:
       - "8000:8000"
