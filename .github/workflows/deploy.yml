@@ -6,7 +6,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository_owner|lower }}/${{ github.event.repository.name|lower }}
 
 jobs:
   build:
@@ -19,6 +18,14 @@ jobs:
     - name: Login to GitHub Container Registry
       run: |
         echo ${{ secrets.PAT }} | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+        
+    - name: Set up lower case variables
+      id: vars
+      run: |
+        OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        REPO_LOWER=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
+        echo "owner_lower=$OWNER_LOWER" >> $GITHUB_OUTPUT
+        echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
         
     - name: Install yq
       run: |
@@ -52,10 +59,10 @@ jobs:
           
           docker build \
             -f "$FULL_DOCKERFILE" \
-            -t "${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/$IMAGE_NAME:latest" \
+            -t "${{ env.REGISTRY }}/${{ steps.vars.outputs.owner_lower }}/${{ steps.vars.outputs.repo_lower }}/$IMAGE_NAME:latest" \
             "$CONTEXT"
             
-          docker push "${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/$IMAGE_NAME:latest"
+          docker push "${{ env.REGISTRY }}/${{ steps.vars.outputs.owner_lower }}/${{ steps.vars.outputs.repo_lower }}/$IMAGE_NAME:latest"
         done
 
   deploy:
