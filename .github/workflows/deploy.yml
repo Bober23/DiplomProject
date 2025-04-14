@@ -38,6 +38,10 @@ jobs:
             echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
             chmod 600 ~/.ssh/id_rsa
             ssh-keyscan -H ${{ secrets.SSH_HOST }} > ~/.ssh/known_hosts
+        - name: Validate key
+          run: |
+            ssh-keygen -l -f ~/.ssh/id_rsa
+            ssh -T -v ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
         - name: create docker compose config
           run: |
             cat docker-compose.yml | envsubst > docker-compose-secret.yml
