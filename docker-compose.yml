@@ -14,7 +14,6 @@ services:
     depends_on:
       - service_image
       - service_doc
-      - service_scanner
     networks:
       - appnet
 
