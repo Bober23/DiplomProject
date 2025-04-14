@@ -34,42 +34,50 @@ jobs:
         docker push "${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/client:latest"
 
   deploy:
-    # ... (остальная часть workflow остается без изменений)
     name: Deploy
     needs: build
     runs-on: ubuntu-latest
-
+  
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        
-    - name: Install SSH keys
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.SSH_HOST }} > ~/.ssh/known_hosts
-        
-    - name: Transfer files to server
-      run: |
-        tar -czf deploy.tar.gz .
-        scp deploy.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy.tar.gz
-        ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-          mkdir -p ~/deploy &&
-          tar -xzf ~/deploy.tar.gz -C ~/deploy &&
-          rm ~/deploy.tar.gz
-        "
-        
-    - name: Deploy application
-      run: |
-        ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-          cd ~/deploy &&
-          docker-compose pull &&
-          docker-compose up -d
-        "
-        
-    - name: Cleanup
-      if: always()
-      run: |
-        rm -rf ~/.ssh deploy.tar.gz
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+  
+      - name: Install SSH keys
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} > ~/.ssh/known_hosts
+  
+      - name: Prepare deployment files
+        run: |
+          # Клонируем свежую копию репозитория
+          git clone https://github.com/${{ github.repository }}.git fresh_copy
+          cd fresh_copy
+          git checkout ${{ github.sha }}
+          # Создаем архив
+          tar -czf ../deploy.tar.gz .
+          cd ..
+  
+      - name: Transfer files to server
+        run: |
+          scp -i ~/.ssh/id_rsa deploy.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy.tar.gz
+          ssh -i ~/.ssh/id_rsa ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            mkdir -p ~/deploy &&
+            tar -xzf ~/deploy.tar.gz -C ~/deploy &&
+            rm ~/deploy.tar.gz
+          "
+  
+      - name: Deploy application
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            cd ~/deploy &&
+            docker-compose pull &&
+            docker-compose up -d
+          "
+  
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf ~/.ssh deploy.tar.gz
