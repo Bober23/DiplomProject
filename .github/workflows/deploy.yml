@@ -56,7 +56,7 @@ jobs:
         - name: Deploy via SSH
           run: |
             ssh ${{ secrets.DEPLOY_SERVER }} << 'EOF'
-              cd /path/to/project
+              cd /diplom
               git pull
               docker compose pull
               docker compose down
