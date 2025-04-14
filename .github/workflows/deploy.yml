@@ -32,13 +32,20 @@ jobs:
         id: repo
         run: echo "REPO=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV  # lowercased
 
+      - name: List files in build context
+        run: |
+          echo "Listing files in the root of the checkout:"
+          ls -la
+          echo "Listing files in fastapi folder:"
+          ls -la fastapi
+
       - name: Build and Push Images
         run: |
           docker build -t ghcr.io/bober23/diplomproject-api:latest -f DiplomProject.Backend.Api/Dockerfile .
+          docker build -t ghcr.io/bober23/diplomproject-scanner:latest -f DiplomProject.Backend.TextScanner/Dockerfile .
           docker build -t ghcr.io/bober23/diplomproject-image:latest -f DiplomProject.Backend.ImageProcessingService/Dockerfile .
           docker build -t ghcr.io/bober23/diplomproject-doc:latest -f DiplomProject.Backend.DocumentProcessingService/Dockerfile .
           docker build -t ghcr.io/bober23/diplomproject-client:latest -f DiplomProject.Front/front/Dockerfile ./DiplomProject.Front/front
-          docker build -t ghcr.io/bober23/diplomproject-scanner:latest -f DiplomProject.Backend.TextScanner/Dockerfile .
 
           docker push ghcr.io/bober23/diplomproject-api:latest
           docker push ghcr.io/bober23/diplomproject-image:latest
