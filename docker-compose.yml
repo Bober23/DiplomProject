@@ -1,6 +1,7 @@
 
 services:
   service_api:
+    image: ghcr.io/bober23/diplomproject-api:latest
     build:
       context: .
       dockerfile: DiplomProject.Backend.Api/Dockerfile
@@ -17,6 +18,7 @@ services:
       - appnet
 
   service_image:
+    image: ghcr.io/bober23/diplomproject-image:latest
     build:
       context: .
       dockerfile: DiplomProject.Backend.ImageProcessingService/Dockerfile
@@ -32,6 +34,7 @@ services:
       - appnet
 
   service_doc:
+    image: ghcr.io/bober23/diplomproject-doc:latest
     build:
       context: .
       dockerfile: DiplomProject.Backend.DocumentProcessingService/Dockerfile
@@ -47,6 +50,7 @@ services:
       - appnet
 
   client:
+    image: ghcr.io/bober23/diplomproject-client:latest
     build:
       context: ./DiplomProject.Front/front
       dockerfile: Dockerfile
