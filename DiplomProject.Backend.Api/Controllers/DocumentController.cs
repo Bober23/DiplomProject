@@ -357,7 +357,7 @@ namespace DiplomProject.Backend.Api.Controllers
                     }
                     else
                     {
-                        throw new Exception("Document generate failure");
+                        throw new Exception($"Document generate failure {response.StatusCode}");
                     }
                 }
                 finally
