@@ -79,3 +79,4 @@ jobs:
             docker compose -f /home/diplom/docker-compose.yml pull
             docker compose -f /home/diplom/docker-compose.yml down
             docker compose -f /home/diplom/docker-compose.yml up -d --pull always --no-build
+            docker image prune
