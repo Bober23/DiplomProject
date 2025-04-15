@@ -1,4 +1,12 @@
 # Используем корень решения в качестве контекста сборки
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+
+# Устанавливаем зависимости для SkiaSharp
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libfontconfig1 libharfbuzz0b && \
+    rm -rf /var/lib/apt/lists/*
+
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
