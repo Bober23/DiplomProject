@@ -10,7 +10,7 @@ app = FastAPI()
 logger = logging.getLogger("uvicorn")
 
 # Инициализация EasyOCR
-reader = Reader(['ru', 'en'], gpu=True)  # Для GPU измените на True
+reader = Reader(['ru', 'en'], gpu=False)  # Для GPU измените на True
 
 def preprocess_image(image: Image.Image) -> np.ndarray:
     """Предобработка изображения для EasyOCR"""
