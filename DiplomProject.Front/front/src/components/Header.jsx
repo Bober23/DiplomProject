@@ -156,7 +156,7 @@ const Header = () => {
         <>
             <HeaderContainer>
                 <LogoSection>
-                    <span onClick={handleHomeClick}>Project Name</span>
+                    <span onClick={handleHomeClick}>TextScanner</span>
                 </LogoSection>
 
                 <ProfileMenu onClick={() => setShowMenu(!showMenu)} ref={menuRef}>
