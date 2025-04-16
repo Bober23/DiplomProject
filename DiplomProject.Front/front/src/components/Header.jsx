@@ -74,12 +74,16 @@ const Header = () => {
     const [loading, setLoading] = useState(false);
     const [form] = Form.useForm();
     const menuRef = useRef(null);
+    const [supportVisible, setSupportVisible] = useState(false);
+    const [supportLoading, setSupportLoading] = useState(false);
+    const [supportText, setSupportText] = useState('');
+    const apiUrl = process.env.REACT_APP_API_URL;
     const navigate = useNavigate();
-    
+
 
     const handleChangePassword = async (values) => {
         try {
-            const response = await fetch(`http://localhost:5120/api/User/${user.id}?passwordHash=${CryptoJS.SHA256(values.passwordHash).toString()}`, {
+            const response = await fetch(`${apiUrl}/api/User/${user.id}?passwordHash=${CryptoJS.SHA256(values.passwordHash).toString()}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -102,7 +106,7 @@ const Header = () => {
     const handleDeleteAccount = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`http://localhost:5120/api/User/${user.id}`, {
+            const response = await fetch(`${apiUrl}/api/User/${user.id}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
@@ -138,7 +142,7 @@ const Header = () => {
 
     const handleHomeClick = () => {
         navigate(`/`);
-      };
+    };
 
     const handleMenuItemClick = (action) => {
         setShowMenu(false);
@@ -148,6 +152,9 @@ const Header = () => {
                 navigate('/login');
                 break;
             // Добавьте обработку других действий
+            case 'support':
+                setSupportVisible(true);
+                break;
         }
     };
     if (!user) return null;
@@ -271,6 +278,62 @@ const Header = () => {
             >
                 <p>Вы точно хотите удалить аккаунт? Это действие нельзя отменить.</p>
                 <p>Все ваши данные будут безвозвратно удалены.</p>
+            </Modal>
+            <Modal
+                title="Обращение в техподдержку"
+                open={supportVisible}
+                onCancel={() => setSupportVisible(false)}
+                footer={[
+                    <Button
+                        key="back"
+                        onClick={() => setSupportVisible(false)}
+                    >
+                        Отмена
+                    </Button>,
+                    <Button
+                        key="submit"
+                        type="primary"
+                        loading={supportLoading}
+                        onClick={async () => {
+                            if (!supportText.trim()) {
+                                message.error('Введите текст сообщения');
+                                return;
+                            }
+
+                            setSupportLoading(true);
+                            try {
+                                // Здесь будет реальный запрос к API
+                                await fetch(`${apiUrl}/api/BugReport`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${user.token}`
+                                    },
+                                    body: JSON.stringify({
+                                        message: supportText,
+                                    })
+                                });
+
+                                message.success('Сообщение отправлено!');
+                                setSupportVisible(false);
+                                setSupportText('');
+                            } catch (error) {
+                                message.error('Ошибка при отправке сообщения');
+                            } finally {
+                                setSupportLoading(false);
+                            }
+                        }}
+                    >
+                        Отправить
+                    </Button>,
+                ]}
+            >
+                <Input.TextArea
+                    rows={4}
+                    value={supportText}
+                    onChange={(e) => setSupportText(e.target.value)}
+                    placeholder="Опишите проблему"
+                />
             </Modal>
         </>
     );

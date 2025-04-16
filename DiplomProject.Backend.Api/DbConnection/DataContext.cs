@@ -9,6 +9,7 @@ namespace DiplomProject
         public DbSet<User> Users { get; set; }
         public DbSet<Document> Documents {  get; set; }
         public DbSet<DocFile> ImageFiles { get; set; }
+        public DbSet<BugReport> BugReports { get; set; }
         public DataContext()
         {
             Database.EnsureCreated();
