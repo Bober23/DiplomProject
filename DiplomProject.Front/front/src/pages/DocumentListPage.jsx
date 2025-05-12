@@ -20,7 +20,29 @@ const DocumentListPage = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [form] = Form.useForm();
+  const [formatFilter, setFormatFilter] = useState(null);
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [categories, setCategories] = useState([]);
   const apiUrl = process.env.REACT_APP_API_URL;
+
+  useEffect(() => {
+    const uniqueCategories = [...new Set(documents.map(doc => doc.category))].filter(cat => cat);
+    setCategories(uniqueCategories);
+  }, [documents]);
+
+  // Формируем отфильтрованные данные
+  const filteredDocuments = documents.filter(doc => {
+    const matchesFormat = !formatFilter || doc.extension === formatFilter;
+    const matchesCategory = !categoryFilter || 
+      (doc.category && doc.category.toLowerCase().includes(categoryFilter.toLowerCase()));
+    return matchesFormat && matchesCategory;
+  });
+
+  const formatOptions = [
+    { value: 'DOCX', label: 'DOCX' },
+    { value: 'PDF', label: 'PDF' },
+    { value: 'ODT', label: 'ODT' },
+  ];
 
   useEffect(() => {
     const fetchDocuments = async () => {
@@ -323,9 +345,38 @@ const DocumentListPage = () => {
           </Form.Item>
         </Form>
       </Modal>
+      <Space style={{ 
+        marginBottom: 16, 
+        display: 'flex', 
+        justifyContent: 'flex-start', 
+        gap: '8px' 
+      }}>
+        <Select
+          placeholder="Формат"
+          options={formatOptions}
+          onChange={setFormatFilter}
+          allowClear
+          style={{ width: 120 }}
+        />
+        
+        <Select
+          placeholder="Категория"
+          options={categories.map(cat => ({ value: cat, label: cat }))}
+          onChange={setCategoryFilter}
+          allowClear
+          showSearch
+          optionFilterProp="children"
+          filterOption={(input, option) =>
+            option.label.toLowerCase().includes(input.toLowerCase())
+          }
+          style={{ width: 200 }}
+        />
+        
+        
+      </Space>
       <Spin spinning={loading}>
         <Table
-          dataSource={documents}
+          dataSource={filteredDocuments}
           columns={columns}
           rowKey="id"
           pagination={{ pageSize: 10 }}

@@ -24,6 +24,7 @@ const LogoSection = styled.div`
   gap: 12px;
   font-size: 20px;
   font-weight: 600;
+  font-family: 'Roboto', sans-serif;
   cursor: pointer;
 `;
 
@@ -36,7 +37,7 @@ const ProfileMenu = styled.div`
   padding: 8px 12px;
   border-radius: 4px;
   transition: background-color 0.3s;
-
+  font-family: 'Roboto', sans-serif;
   &:hover {
     background-color: rgba(255, 255, 255, 0.1);
   }
@@ -60,7 +61,7 @@ const MenuItem = styled.div`
   align-items: center;
   gap: 8px;
   transition: background-color 0.3s;
-
+  font-family: 'Roboto', sans-serif;
   &:hover {
     background-color: #f5f5f5;
   }
